@@ -56,17 +56,103 @@ export function getApiUrl(path: string, overrideBase?: string): string {
 }
 
 /**
+ * Checks server connectivity and latency for diagnostic panel
+ */
+export async function checkServerHealth(targetUrl?: string): Promise<{
+  reachable: boolean;
+  status: number;
+  message: string;
+  url: string;
+  latencyMs: number;
+}> {
+  const base = targetUrl || getActiveServerBaseUrl();
+  const testEndpoint = `${base.replace(/\/+$/, '')}/api/health`;
+  const startTime = Date.now();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(testEndpoint, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { "Accept": "application/json" }
+    });
+    clearTimeout(timeoutId);
+    const latencyMs = Date.now() - startTime;
+
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return {
+        reachable: true,
+        status: res.status,
+        message: `Connected successfully (${latencyMs}ms). Service: ${data.service || "active"}`,
+        url: testEndpoint,
+        latencyMs
+      };
+    } else if (res.status === 404) {
+      return {
+        reachable: false,
+        status: 404,
+        message: `Server returned 404 Not Found. This endpoint is not active or the container is not running on Cloud Run.`,
+        url: testEndpoint,
+        latencyMs
+      };
+    } else if (res.status === 302) {
+      return {
+        reachable: false,
+        status: 302,
+        message: `Server requires Google AI Studio authentication cookies (ais-dev). Deploy/share the app to use the public preview.`,
+        url: testEndpoint,
+        latencyMs
+      };
+    } else {
+      return {
+        reachable: false,
+        status: res.status,
+        message: `HTTP ${res.status} response from server.`,
+        url: testEndpoint,
+        latencyMs
+      };
+    }
+  } catch (err: any) {
+    const latencyMs = Date.now() - startTime;
+    return {
+      reachable: false,
+      status: 0,
+      message: err.name === 'AbortError' ? 'Connection timed out after 6 seconds.' : (err.message || 'Network connection failed.'),
+      url: testEndpoint,
+      latencyMs
+    };
+  }
+}
+
+/**
  * Wrapper for fetch that automatically handles API routing across Web and Mobile Native (Capacitor)
  * with automatic fallback if primary server is unreachable.
  */
 export async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
   const url = getApiUrl(path);
   try {
-    return await fetch(url, options);
+    const res = await fetch(url, options);
+    // If the response is 404 or 502/503 on native mobile, attempt fallback if alternative available
+    if (Capacitor.isNativePlatform() && (res.status === 404 || res.status === 502 || res.status === 503)) {
+      const fallbackBase = url.includes(SHARED_PREVIEW_SERVER_URL) ? PRIMARY_DEV_SERVER_URL : SHARED_PREVIEW_SERVER_URL;
+      const fallbackUrl = getApiUrl(path, fallbackBase);
+      try {
+        const fallbackRes = await fetch(fallbackUrl, options);
+        if (fallbackRes && fallbackRes.ok) {
+          return fallbackRes;
+        }
+      } catch {
+        // preserve original response
+      }
+    }
+    return res;
   } catch (err) {
     if (Capacitor.isNativePlatform()) {
-      // If shared preview fetch fails, fallback to dev server URL
-      const fallbackUrl = getApiUrl(path, PRIMARY_DEV_SERVER_URL);
+      const fallbackBase = url.includes(SHARED_PREVIEW_SERVER_URL) ? PRIMARY_DEV_SERVER_URL : SHARED_PREVIEW_SERVER_URL;
+      const fallbackUrl = getApiUrl(path, fallbackBase);
       console.warn(`[apiFetch] Primary fetch failed for ${url}, trying fallback ${fallbackUrl}...`);
       return fetch(fallbackUrl, options);
     }
@@ -100,11 +186,17 @@ export async function safeJsonFetch<T = any>(
       }
     } else {
       const text = await res.text().catch(() => "");
+      let specificError = `Server HTTP ${res.status}`;
+      if (res.status === 404) {
+        specificError = "Server HTTP 404: Container endpoint not found. Ensure backend is deployed on Cloud Run.";
+      } else if (text.includes("__cookie_check")) {
+        specificError = "Server HTTP 302: Protected by Google auth cookie. Deploy to Shared Preview or use public host.";
+      }
       return {
         ok: false,
         status: res.status,
         data: null,
-        error: res.ok ? "Server returned non-JSON response" : `Server HTTP ${res.status}: ${text.slice(0, 100)}`
+        error: specificError
       };
     }
 
@@ -128,7 +220,7 @@ export async function safeJsonFetch<T = any>(
       ok: false,
       status: 0,
       data: null,
-      error: netErr?.message || "Network connection error"
+      error: netErr?.message || "Network connection error: Failed to connect to backend server"
     };
   }
 }

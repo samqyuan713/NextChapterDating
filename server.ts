@@ -417,6 +417,16 @@ const FALLBACK_RESPONSES: Record<string, string[]> = {
 // API ROUTES
 // ----------------------------------------------------
 
+// Server Health check route for mobile connectivity diagnostics
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "next-chapter-dating-api",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Database Health & Data Integrity Check Route
 app.get("/api/health/db", async (req, res) => {
   try {
@@ -505,6 +515,7 @@ app.get("/api/profile", requireAuth, async (req: AuthRequest, res) => {
       .from(users)
       .where(eq(users.id, req.userDb.id));
 
+    console.log(`[API GET /api/profile] Fetched record for User ID: ${req.userDb.id}, Email: ${req.userDb.email}, Name: ${profile?.name}`);
     return res.json({ status: "success", profile: profile || req.userDb });
   } catch (error) {
     console.error("Failed to query profile via Drizzle ORM:", error);
@@ -550,6 +561,8 @@ app.post("/api/profile", requireAuth, async (req: AuthRequest, res) => {
     if (weight !== undefined) updateData.weight = weight !== null && weight !== "" ? Number(weight) : null;
     if (gender !== undefined) updateData.gender = gender;
 
+    console.log(`[API POST /api/profile] Incoming update for User ID: ${req.userDb.id} (${req.userDb.email}):`, updateData);
+
     // Execute standard Drizzle ORM update against PostgreSQL
     const updated = await db
       .update(users)
@@ -557,6 +570,7 @@ app.post("/api/profile", requireAuth, async (req: AuthRequest, res) => {
       .where(eq(users.id, req.userDb.id))
       .returning();
 
+    console.log(`[API POST /api/profile] Successfully updated in DB:`, updated[0]);
     return res.json({ status: "success", profile: updated[0] });
   } catch (error) {
     console.error("Failed to update user profile via Drizzle ORM:", error);

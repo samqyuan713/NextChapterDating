@@ -42,14 +42,19 @@ import {
   Wifi,
   Smartphone,
   Download,
-  Image as ImageIcon
+  Image as ImageIcon,
+  UploadCloud,
+  DownloadCloud,
+  AlertTriangle,
+  XCircle,
+  Check
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
 import { auth, googleAuthProvider } from "./lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
-import { apiFetch, safeJsonFetch, getActiveServerBaseUrl, setActiveServerBaseUrl, PRIMARY_DEV_SERVER_URL, SHARED_PREVIEW_SERVER_URL } from "./lib/api";
+import { apiFetch, safeJsonFetch, getActiveServerBaseUrl, setActiveServerBaseUrl, checkServerHealth, PRIMARY_DEV_SERVER_URL, SHARED_PREVIEW_SERVER_URL } from "./lib/api";
 
 // Standard interests user can select
 const INTERESTS_PRESETS = [
@@ -207,7 +212,18 @@ export default function App() {
   // Server Environment Target & Cloud Database Sync state
   const [currentServerHost, setCurrentServerHost] = useState<string>(() => getActiveServerBaseUrl());
   const [manualSyncStatus, setManualSyncStatus] = useState<string>("");
+  const [manualSyncError, setManualSyncError] = useState<string>("");
   const [isManualSyncing, setIsManualSyncing] = useState<boolean>(false);
+  const [serverDiagnostic, setServerDiagnostic] = useState<{
+    reachable: boolean;
+    status: number;
+    message: string;
+    latencyMs: number;
+    url: string;
+  } | null>(null);
+  const [isTestingServer, setIsTestingServer] = useState<boolean>(false);
+  const [customServerUrlInput, setCustomServerUrlInput] = useState<string>("");
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
 
   const currentUser = fbUser ? (fbUser.displayName || fbUser.email || "Companion") : null;
 
@@ -257,21 +273,30 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const fetchUserProfile = async (tokenOverride?: string) => {
+  const fetchUserProfile = async (tokenOverride?: string): Promise<{ success: boolean; profile?: any; error?: string }> => {
     let activeToken = tokenOverride || idToken;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
     if (!activeToken) {
       activeToken = `sandbox-token-${savedEmail.toLowerCase().trim()}`;
     }
 
+    // Check local device cache
+    let cachedProfile: any = null;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem("cached_user_profile");
+      if (raw) {
+        try { cachedProfile = JSON.parse(raw); } catch {}
+      }
+    }
+
     try {
-      const { ok, data } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
+      const { ok, data, error } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
         headers: {
           "Authorization": `Bearer ${activeToken}`
         }
       });
       if (ok && data && data.profile) {
-        setUserProfile({
+        const loaded = {
           name: data.profile.name || "",
           age: data.profile.age !== null && data.profile.age !== undefined ? Number(data.profile.age) : 50,
           location: data.profile.location || "",
@@ -279,12 +304,22 @@ export default function App() {
           bio: data.profile.bio || "",
           relationshipGoal: data.profile.relationshipGoal || "Companionship & Shared Outings",
           isSubscribed: Boolean(data.profile.isSubscribed)
-        });
-        if (data.profile.name && data.profile.name.trim() !== "") {
+        };
+        setUserProfile(loaded);
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem("cached_user_profile", JSON.stringify(loaded)); } catch {}
+        }
+        if (loaded.name && loaded.name.trim() !== "") {
           setHasOnboarded(true);
         }
+        return { success: true, profile: loaded };
       } else {
-        setUserProfile((prev) => prev || {
+        // If server returned error or 404, fallback to local cache
+        if (cachedProfile) {
+          setUserProfile(cachedProfile);
+          return { success: false, profile: cachedProfile, error: error || "Server offline; loaded cached profile" };
+        }
+        const fallback = {
           name: fbUser?.displayName || "Sam",
           age: 50,
           location: "Singapore",
@@ -292,44 +327,45 @@ export default function App() {
           bio: "",
           relationshipGoal: "Companionship & Shared Outings",
           isSubscribed: false
-        });
+        };
+        setUserProfile((prev) => prev || fallback);
+        return { success: false, error: error || "Could not fetch profile from server" };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Failed to load user profile:", err);
-      setUserProfile((prev) => prev || {
-        name: fbUser?.displayName || "Sam",
-        age: 50,
-        location: "Singapore",
-        interests: [],
-        bio: "",
-        relationshipGoal: "Companionship & Shared Outings",
-        isSubscribed: false
-      });
+      if (cachedProfile) {
+        setUserProfile(cachedProfile);
+        return { success: false, profile: cachedProfile, error: err?.message || "Connection error" };
+      }
+      return { success: false, error: err?.message || "Connection error" };
     }
   };
 
-  const saveUserProfile = async (updated: any) => {
-    if (!updated) return false;
+  const saveUserProfile = async (updated: any): Promise<{ success: boolean; error?: string; profile?: any }> => {
+    if (!updated) return { success: false, error: "No profile data provided" };
 
-    // Optimistically update local profile and onboarding state
-    setUserProfile((prev) => {
-      const nextProfile = {
-        name: updated.name !== undefined ? updated.name : (prev?.name || ""),
-        age: updated.age !== undefined && updated.age !== null && updated.age !== "" ? Number(updated.age) : (prev?.age || 50),
-        location: updated.location !== undefined ? updated.location : (prev?.location || ""),
-        interests: Array.isArray(updated.interests) ? updated.interests : (prev?.interests || []),
-        bio: updated.bio !== undefined ? updated.bio : (prev?.bio || ""),
-        relationshipGoal: updated.relationshipGoal !== undefined ? updated.relationshipGoal : (prev?.relationshipGoal || "Companionship & Shared Outings"),
-        isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(prev?.isSubscribed)
-      };
-      if (nextProfile.name && nextProfile.name.trim() !== "") {
-        setHasOnboarded(true);
-      }
-      return nextProfile;
-    });
+    // Build the latest updated profile object
+    const nextProfile = {
+      name: updated.name !== undefined ? updated.name : (userProfile?.name || ""),
+      age: updated.age !== undefined && updated.age !== null && updated.age !== "" ? Number(updated.age) : (userProfile?.age || 50),
+      location: updated.location !== undefined ? updated.location : (userProfile?.location || ""),
+      interests: Array.isArray(updated.interests) ? updated.interests : (userProfile?.interests || []),
+      bio: updated.bio !== undefined ? updated.bio : (userProfile?.bio || ""),
+      relationshipGoal: updated.relationshipGoal !== undefined ? updated.relationshipGoal : (userProfile?.relationshipGoal || "Companionship & Shared Outings"),
+      isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(userProfile?.isSubscribed)
+    };
 
-    if (updated.name && updated.name.trim() !== "") {
+    // Optimistically update React state
+    setUserProfile(nextProfile);
+    if (nextProfile.name && nextProfile.name.trim() !== "") {
       setHasOnboarded(true);
+    }
+
+    // Immediately cache to local device storage so edits are never lost on mobile
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem("cached_user_profile", JSON.stringify(nextProfile));
+      } catch {}
     }
 
     let activeToken = idToken;
@@ -339,7 +375,7 @@ export default function App() {
     }
 
     try {
-      const { ok, data, error } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
+      const { ok, data, error, status } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -349,7 +385,7 @@ export default function App() {
       });
 
       if (ok && data && data.profile) {
-        setUserProfile({
+        const synced = {
           name: data.profile.name || updated.name || "",
           age: data.profile.age !== null && data.profile.age !== undefined ? Number(data.profile.age) : (updated.age || 50),
           location: data.profile.location !== undefined ? data.profile.location : (updated.location || ""),
@@ -357,16 +393,23 @@ export default function App() {
           bio: data.profile.bio !== undefined ? data.profile.bio : (updated.bio || ""),
           relationshipGoal: data.profile.relationshipGoal || updated.relationshipGoal || "Companionship & Shared Outings",
           isSubscribed: Boolean(data.profile.isSubscribed)
-        });
+        };
+        setUserProfile(synced);
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem("cached_user_profile", JSON.stringify(synced)); } catch {}
+        }
         setHasOnboarded(true);
-        return true;
-      } else if (error) {
-        console.warn("Save profile server response notice:", error);
+        return { success: true, profile: synced };
+      } else {
+        const errNotice = error || `Server rejected save (HTTP ${status})`;
+        console.warn("[saveUserProfile] DB update notice:", errNotice);
+        return { success: false, error: errNotice };
       }
-    } catch (err) {
-      console.warn("Notice: Local profile preserved during background save sync:", err);
+    } catch (err: any) {
+      const errNotice = err?.message || "Network error while saving profile to server";
+      console.warn("[saveUserProfile] Exception during save sync:", errNotice);
+      return { success: false, error: errNotice };
     }
-    return true;
   };
 
   // Derived onboarding status - relies on completed onboarding flag or non-empty profile name
@@ -1880,51 +1923,157 @@ export default function App() {
                         <p className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
                           <Server className="w-3.5 h-3.5 text-amber-700" />
                           <span>Connected Account:</span>
-                          <span className="font-bold text-amber-900">{fbUser?.email || savedUserEmail || "sam@abc.com"}</span>
+                          <span className="font-bold text-amber-900">{fbUser?.email || savedUserEmail || "qyuan.sam@gmail.com"}</span>
                         </p>
                         <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                          To sync profile data between your computer browser and mobile APK client, ensure both devices are connected to the same Cloud Run server database target.
+                          Synchronizes profile records between your Web browser and mobile Android APK via Cloud SQL (PostgreSQL) and Drizzle ORM.
                         </p>
                       </div>
                       
-                      <button
-                        type="button"
-                        disabled={isManualSyncing}
-                        onClick={async () => {
-                          try {
-                            setIsManualSyncing(true);
-                            setManualSyncStatus("Syncing profile with database...");
-                            let activeToken = idToken;
-                            const currentEmail = fbUser?.email || savedUserEmail || "sam@abc.com";
-                            if (!activeToken) {
-                              activeToken = `sandbox-token-${currentEmail.toLowerCase().trim()}`;
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Upload to Cloud Button */}
+                        <button
+                          type="button"
+                          disabled={isManualSyncing}
+                          onClick={async () => {
+                            try {
+                              setIsManualSyncing(true);
+                              setManualSyncStatus("Uploading profile to Cloud Database...");
+                              setManualSyncError("");
+                              const res = await saveUserProfile(userProfile);
+                              if (res.success) {
+                                setManualSyncStatus(`✓ Profile successfully saved to Cloud SQL via Drizzle ORM! (${new Date().toLocaleTimeString()})`);
+                                setManualSyncError("");
+                              } else {
+                                setManualSyncStatus("");
+                                setManualSyncError(`Upload failed: ${res.error || "Server unreachable"}. Edits remain safely saved on device.`);
+                              }
+                            } catch (e: any) {
+                              setManualSyncStatus("");
+                              setManualSyncError(`Upload error: ${e.message || "Network failure"}`);
+                            } finally {
+                              setIsManualSyncing(false);
                             }
-                            await fetchUserProfile(activeToken || undefined);
-                            await saveUserProfile(userProfile);
-                            setManualSyncStatus(`Synced successfully with Cloud Database! (${new Date().toLocaleTimeString()})`);
-                          } catch (e: any) {
-                            setManualSyncStatus("Sync check finished. Local profile is active.");
-                          } finally {
-                            setIsManualSyncing(false);
-                          }
-                        }}
-                        className="px-3.5 py-2 rounded-xl bg-amber-900 hover:bg-amber-950 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? "animate-spin" : ""}`} />
-                        <span>{isManualSyncing ? "Syncing..." : "Sync Cloud Data Now"}</span>
-                      </button>
+                          }}
+                          className="px-3 py-2 rounded-xl bg-amber-900 hover:bg-amber-950 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          <UploadCloud className={`w-3.5 h-3.5 ${isManualSyncing ? "animate-bounce" : ""}`} />
+                          <span>{isManualSyncing ? "Saving..." : "Upload to Cloud DB"}</span>
+                        </button>
+
+                        {/* Download from Cloud Button */}
+                        <button
+                          type="button"
+                          disabled={isManualSyncing}
+                          onClick={async () => {
+                            try {
+                              setIsManualSyncing(true);
+                              setManualSyncStatus("Downloading latest profile from Cloud Database...");
+                              setManualSyncError("");
+                              const res = await fetchUserProfile();
+                              if (res.success) {
+                                setManualSyncStatus(`✓ Downloaded latest profile from Cloud SQL! (${new Date().toLocaleTimeString()})`);
+                                setManualSyncError("");
+                              } else {
+                                setManualSyncStatus("");
+                                setManualSyncError(`Download failed: ${res.error || "Could not reach database"}`);
+                              }
+                            } catch (e: any) {
+                              setManualSyncStatus("");
+                              setManualSyncError(`Download error: ${e.message || "Network failure"}`);
+                            } finally {
+                              setIsManualSyncing(false);
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                        >
+                          <DownloadCloud className={`w-3.5 h-3.5 ${isManualSyncing ? "animate-bounce" : ""}`} />
+                          <span>Fetch from Cloud DB</span>
+                        </button>
+                      </div>
                     </div>
 
+                    {/* Sync Success Feedback */}
                     {manualSyncStatus && (
-                      <p className="text-xs text-emerald-800 font-medium bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <div className="text-xs text-emerald-800 font-medium bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>{manualSyncStatus}</span>
-                      </p>
+                      </div>
                     )}
 
-                    <div className="pt-2 border-t border-amber-100">
+                    {/* Sync Error Feedback */}
+                    {manualSyncError && (
+                      <div className="text-xs text-rose-800 font-medium bg-rose-50 border border-rose-200 px-3 py-2 rounded-xl flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Sync Notice:</p>
+                          <p className="text-[11px] text-rose-700 mt-0.5">{manualSyncError}</p>
+                          <p className="text-[10px] text-rose-600 mt-1">Tip: Run the "Test Connection" tool below to check if your mobile device can reach the backend server.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Live Server Diagnostic & Ping Test */}
+                    <div className="pt-3 border-t border-amber-100/80">
+                      <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1">
+                          <Server className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Active Host:</span>
+                          <span className="font-mono text-[10px] lowercase text-amber-700 bg-amber-100/60 px-2 py-0.5 rounded-md truncate max-w-[200px] sm:max-w-none">
+                            {currentServerHost}
+                          </span>
+                        </span>
+                        
+                        <button
+                          type="button"
+                          disabled={isTestingServer}
+                          onClick={async () => {
+                            setIsTestingServer(true);
+                            const res = await checkServerHealth(currentServerHost);
+                            setServerDiagnostic(res);
+                            setIsTestingServer(false);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-amber-800 hover:bg-amber-900 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isTestingServer ? "animate-spin" : ""}`} />
+                          <span>{isTestingServer ? "Testing..." : "Test Connection"}</span>
+                        </button>
+                      </div>
+
+                      {serverDiagnostic && (
+                        <div className={`p-3 rounded-xl border text-xs mb-3 ${
+                          serverDiagnostic.reachable
+                            ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+                            : "bg-amber-50/90 border-amber-300 text-amber-950"
+                        }`}>
+                          <div className="flex items-start gap-2">
+                            {serverDiagnostic.reachable ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            ) : (
+                              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            )}
+                            <div>
+                              <p className="font-bold">
+                                {serverDiagnostic.reachable ? "Server Reachable (HTTP 200 OK)" : `Connection Result: HTTP ${serverDiagnostic.status || "0"} (${serverDiagnostic.latencyMs}ms)`}
+                              </p>
+                              <p className="text-[11px] mt-0.5 leading-relaxed">{serverDiagnostic.message}</p>
+                              {serverDiagnostic.status === 404 && (
+                                <p className="text-[10px] text-rose-700 font-semibold mt-1">
+                                  Cause: The Cloud Run shared preview URL is not currently deployed. In AI Studio, open the top menu and select "Share" or "Deploy" to publish the container.
+                                </p>
+                              )}
+                              {serverDiagnostic.status === 302 && (
+                                <p className="text-[10px] text-amber-800 font-semibold mt-1">
+                                  Cause: The ais-dev server requires Google login cookies. Standalone mobile APKs cannot authenticate to ais-dev. Deploy to Shared Preview (ais-pre) or enter a custom backend URL below.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <label className="block text-[11px] font-bold uppercase tracking-wider text-amber-900 mb-1.5">
-                        Active Backend Host Target (Web / Mobile Alignment):
+                        Select or Configure Backend Server Target:
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button
@@ -1932,7 +2081,9 @@ export default function App() {
                           onClick={() => {
                             setActiveServerBaseUrl(PRIMARY_DEV_SERVER_URL);
                             setCurrentServerHost(PRIMARY_DEV_SERVER_URL);
+                            setServerDiagnostic(null);
                             setManualSyncStatus("Server target set to Development Server.");
+                            setManualSyncError("");
                           }}
                           className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                             currentServerHost === PRIMARY_DEV_SERVER_URL
@@ -1954,7 +2105,9 @@ export default function App() {
                           onClick={() => {
                             setActiveServerBaseUrl(SHARED_PREVIEW_SERVER_URL);
                             setCurrentServerHost(SHARED_PREVIEW_SERVER_URL);
+                            setServerDiagnostic(null);
                             setManualSyncStatus("Server target set to Production/Shared Preview Server.");
+                            setManualSyncError("");
                           }}
                           className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                             currentServerHost === SHARED_PREVIEW_SERVER_URL
@@ -1969,6 +2122,33 @@ export default function App() {
                           <p className={`text-[10px] mt-0.5 truncate ${currentServerHost === SHARED_PREVIEW_SERVER_URL ? "text-amber-200" : "text-amber-700"}`}>
                             {SHARED_PREVIEW_SERVER_URL}
                           </p>
+                        </button>
+                      </div>
+
+                      {/* Custom Server URL Input */}
+                      <div className="mt-3 flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={customServerUrlInput}
+                          onChange={(e) => setCustomServerUrlInput(e.target.value)}
+                          placeholder="Or enter custom URL (e.g. https://... or http://192.168.1.x:3000)"
+                          className="flex-1 text-xs px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-amber-900 placeholder:text-amber-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customServerUrlInput && customServerUrlInput.trim() !== "") {
+                              const clean = customServerUrlInput.trim();
+                              setActiveServerBaseUrl(clean);
+                              setCurrentServerHost(clean);
+                              setServerDiagnostic(null);
+                              setManualSyncStatus(`Configured custom server target: ${clean}`);
+                              setManualSyncError("");
+                            }
+                          }}
+                          className="px-3 py-2 bg-amber-900 hover:bg-amber-950 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0"
+                        >
+                          Apply Target
                         </button>
                       </div>
                     </div>
@@ -2068,46 +2248,64 @@ export default function App() {
                 </div>
 
                 {/* Save Changes button with feedback */}
-                <div className="mt-8 pt-6 border-t border-amber-100 flex items-center justify-between gap-4 flex-wrap">
-                  <p className="text-xs text-amber-600 font-medium">
-                    Changes are automatically saved, or you can force-save with the button.
-                  </p>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    {profileSaveSuccess && (
-                      <span className="text-xs text-emerald-700 font-bold animate-pulse flex items-center gap-1 mr-1">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>Saved!</span>
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const success = await saveUserProfile(userProfile);
-                        if (success) {
+                <div className="mt-8 pt-6 border-t border-amber-100 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <p className="text-xs text-amber-600 font-medium">
+                      Changes are kept locally and synced with Cloud SQL when connected.
+                    </p>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {profileSaveSuccess && (
+                        <span className="text-xs text-emerald-700 font-bold animate-pulse flex items-center gap-1 mr-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Saved to Database!</span>
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await saveUserProfile(userProfile);
+                          if (res.success) {
+                            setProfileSaveSuccess(true);
+                            setProfileSaveError(null);
+                            setTimeout(() => setProfileSaveSuccess(false), 3500);
+                          } else {
+                            setProfileSaveSuccess(false);
+                            setProfileSaveError(res.error || "Could not reach database server. Your changes are saved safely on device.");
+                            setTimeout(() => setProfileSaveError(null), 8000);
+                          }
+                        }}
+                        className="px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Save Settings</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          saveUserProfile(userProfile).catch(console.error);
                           setProfileSaveSuccess(true);
                           setTimeout(() => setProfileSaveSuccess(false), 3000);
-                        }
-                      }}
-                      className="px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save Settings</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileSaveSuccess(true);
-                        setTimeout(() => setProfileSaveSuccess(false), 3000);
-                        setActiveTab("gardens");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                        saveUserProfile(userProfile).catch(console.error);
-                      }}
-                      className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Compass className="w-4 h-4 text-emerald-200" />
-                      <span>Save & Go to Discovery</span>
-                    </button>
+                          setActiveTab("gardens");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Compass className="w-4 h-4 text-emerald-200" />
+                        <span>Save & Go to Discovery</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {profileSaveError && (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Notice: </span>
+                        <span>{profileSaveError}</span>
+                        <p className="text-[11px] text-amber-700 mt-0.5">Use the "Cloud Database & Mobile Cross-Device Sync" section above to test connection or select an active server target.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
