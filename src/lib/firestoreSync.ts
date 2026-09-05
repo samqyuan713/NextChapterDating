@@ -18,7 +18,13 @@ export interface SyncedProfile {
  */
 export function getProfileDocId(emailOrUid: string): string {
   if (!emailOrUid || emailOrUid.trim() === "") return "qyuan_sam_gmail_com";
-  return emailOrUid.toLowerCase().trim().replace(/[^a-z0-9]/g, "_");
+  let clean = emailOrUid.toLowerCase().trim();
+  // Strip any sandbox prefixes so sandbox-uid-sam-abc-com maps cleanly to sam_abc_com
+  clean = clean
+    .replace(/^sandbox-uid-/, "")
+    .replace(/^sandbox_uid_/, "")
+    .replace(/^sandbox-token-/, "");
+  return clean.replace(/[^a-z0-9]/g, "_");
 }
 
 /**
@@ -28,7 +34,7 @@ export function getProfileDocId(emailOrUid: string): string {
 export async function saveProfileToFirestore(
   emailOrUid: string,
   profile: SyncedProfile
-): Promise<{ success: boolean; error?: string; updatedAt?: string }> {
+): Promise<{ success: boolean; error?: string; updatedAt?: string; docId?: string }> {
   try {
     const docId = getProfileDocId(emailOrUid);
     const userDocRef = doc(firestore, 'user_profiles', docId);
@@ -49,7 +55,12 @@ export async function saveProfileToFirestore(
     };
 
     await setDoc(userDocRef, payload, { merge: true });
-    return { success: true, updatedAt: nowIso };
+
+    // Also mirror to legacy sandbox_uid_${docId} so any older mobile builds stay in sync
+    const legacyDocRef = doc(firestore, 'user_profiles', `sandbox_uid_${docId}`);
+    setDoc(legacyDocRef, payload, { merge: true }).catch(() => {});
+
+    return { success: true, updatedAt: nowIso, docId };
   } catch (err: any) {
     console.error("[Firestore] saveProfileToFirestore error:", err);
     return { success: false, error: err?.message || "Failed to save profile to Firestore" };
@@ -61,11 +72,24 @@ export async function saveProfileToFirestore(
  */
 export async function fetchProfileFromFirestore(
   emailOrUid: string
-): Promise<{ success: boolean; profile?: SyncedProfile; error?: string }> {
+): Promise<{ success: boolean; profile?: SyncedProfile; error?: string; docId?: string }> {
   try {
     const docId = getProfileDocId(emailOrUid);
     const userDocRef = doc(firestore, 'user_profiles', docId);
-    const docSnap = await getDoc(userDocRef);
+    let docSnap = await getDoc(userDocRef);
+
+    // Fallback: If not found under normalized key, check legacy sandbox_uid_ prefix
+    if (!docSnap.exists()) {
+      const legacyDocId = `sandbox_uid_${docId}`;
+      const legacyDocRef = doc(firestore, 'user_profiles', legacyDocId);
+      const legacySnap = await getDoc(legacyDocRef);
+      if (legacySnap.exists()) {
+        docSnap = legacySnap;
+        // Migrate to clean normalized key in background
+        const data = legacySnap.data();
+        setDoc(userDocRef, data, { merge: true }).catch(() => {});
+      }
+    }
 
     if (docSnap.exists()) {
       const data = docSnap.data();
@@ -79,7 +103,7 @@ export async function fetchProfileFromFirestore(
         isSubscribed: Boolean(data.isSubscribed),
         updatedAt: data.updatedAt || undefined
       };
-      return { success: true, profile: loaded };
+      return { success: true, profile: loaded, docId: docSnap.id };
     } else {
       return { success: false, error: "No profile document found in Firestore" };
     }

@@ -245,7 +245,7 @@ export default function App() {
         try {
           const token = await user.getIdToken();
           setIdToken(token);
-          await fetchUserProfile(token);
+          await fetchUserProfile(token, user.email || undefined);
         } catch (err) {
           console.error("Auth state synchronization error:", err);
         }
@@ -261,7 +261,7 @@ export default function App() {
           };
           setFbUser(guestUser as any);
           setIdToken(token);
-          await fetchUserProfile(token);
+          await fetchUserProfile(token, emailTrimmed);
         } else {
           setFbUser(null);
           setIdToken(null);
@@ -274,13 +274,16 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const fetchUserProfile = async (tokenOverride?: string): Promise<{ success: boolean; profile?: any; error?: string; source?: string }> => {
+  const fetchUserProfile = async (
+    tokenOverride?: string,
+    emailOverride?: string
+  ): Promise<{ success: boolean; profile?: any; error?: string; source?: string; docId?: string }> => {
+    const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
+    const userIdentifier = emailOverride || fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
     let activeToken = tokenOverride || idToken;
-    const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
-    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
 
     if (!activeToken) {
-      activeToken = `sandbox-token-${savedEmail.toLowerCase().trim()}`;
+      activeToken = `sandbox-token-${userIdentifier.toLowerCase().trim()}`;
     }
 
     // Check local device cache
@@ -432,6 +435,12 @@ export default function App() {
     let activeToken = idToken;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
     const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem("saved_user_email", userIdentifier);
+      } catch {}
+    }
 
     // DIRECT CLOUD SYNC: Always persist to Firebase Cloud Firestore directly!
     // This allows mobile APK to save without requiring Cloud Run deployment or cookies.
@@ -779,6 +788,10 @@ export default function App() {
       return;
     }
 
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("saved_user_email", emailTrimmed);
+    }
+
     try {
       setLoadingAuth(true);
       await createUserWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
@@ -793,7 +806,7 @@ export default function App() {
       const guestToken = `sandbox-token-${emailTrimmed}`;
       setIdToken(guestToken);
       setIsSandboxMode(true);
-      await fetchUserProfile(guestToken);
+      await fetchUserProfile(guestToken, emailTrimmed);
     } finally {
       setLoadingAuth(false);
     }
@@ -811,6 +824,10 @@ export default function App() {
       return;
     }
 
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("saved_user_email", emailTrimmed);
+    }
+
     try {
       setLoadingAuth(true);
       await signInWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
@@ -825,7 +842,7 @@ export default function App() {
       const guestToken = `sandbox-token-${emailTrimmed}`;
       setIdToken(guestToken);
       setIsSandboxMode(true);
-      await fetchUserProfile(guestToken);
+      await fetchUserProfile(guestToken, emailTrimmed);
     } finally {
       setLoadingAuth(false);
     }
@@ -849,6 +866,9 @@ export default function App() {
     setLoadingAuth(true);
     const testEmail = "guest@example.com";
     const testPassword = "password123";
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem("saved_user_email", testEmail);
+    }
     try {
       await signInWithEmailAndPassword(auth, testEmail, testPassword);
     } catch (loginErr: any) {
@@ -864,7 +884,7 @@ export default function App() {
         const guestToken = "sandbox-token-guest@example.com";
         setIdToken(guestToken);
         setIsSandboxMode(true);
-        await fetchUserProfile(guestToken);
+        await fetchUserProfile(guestToken, testEmail);
         setLoadingAuth(false);
         return;
       }
@@ -883,7 +903,7 @@ export default function App() {
         const guestToken = "sandbox-token-guest@example.com";
         setIdToken(guestToken);
         setIsSandboxMode(true);
-        await fetchUserProfile(guestToken);
+        await fetchUserProfile(guestToken, testEmail);
       }
     } finally {
       setLoadingAuth(false);
@@ -895,6 +915,10 @@ export default function App() {
       await fbSignOut(auth);
     } catch (err) {
       console.error("Firebase Sign Out Error:", err);
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem("saved_user_email");
+      localStorage.removeItem("cached_user_profile");
     }
     setFbUser(null);
     setIdToken(null);
@@ -2057,7 +2081,8 @@ export default function App() {
                               setIsManualSyncing(true);
                               setManualSyncStatus("Downloading latest profile from Cloud Database...");
                               setManualSyncError("");
-                              const res = await fetchUserProfile();
+                              const activeEmail = fbUser?.email || (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || undefined;
+                              const res = await fetchUserProfile(idToken || undefined, activeEmail);
                               if (res.success) {
                                 setManualSyncStatus(`✓ Downloaded latest profile from ${res.source || "Cloud Database"}! (${new Date().toLocaleTimeString()})`);
                                 setManualSyncError("");
