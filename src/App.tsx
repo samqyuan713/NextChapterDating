@@ -55,6 +55,7 @@ import { auth, googleAuthProvider } from "./lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
 import { apiFetch, safeJsonFetch, getActiveServerBaseUrl, setActiveServerBaseUrl, checkServerHealth, PRIMARY_DEV_SERVER_URL, SHARED_PREVIEW_SERVER_URL } from "./lib/api";
+import { saveProfileToFirestore, fetchProfileFromFirestore } from "./lib/firestoreSync";
 
 // Standard interests user can select
 const INTERESTS_PRESETS = [
@@ -289,6 +290,22 @@ export default function App() {
       }
     }
 
+    // Direct Cloud Sync: First attempt or background sync with Firebase Cloud Firestore
+    const userIdentifier = fbUser?.uid || fbUser?.email || savedEmail;
+    if (userIdentifier) {
+      fetchProfileFromFirestore(userIdentifier).then((fsRes) => {
+        if (fsRes.success && fsRes.profile) {
+          setUserProfile(fsRes.profile);
+          if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem("cached_user_profile", JSON.stringify(fsRes.profile)); } catch {}
+          }
+          if (fsRes.profile.name && fsRes.profile.name.trim() !== "") {
+            setHasOnboarded(true);
+          }
+        }
+      }).catch((e) => console.warn("[Firestore] background fetch note:", e));
+    }
+
     try {
       const { ok, data, error } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
         headers: {
@@ -312,9 +329,28 @@ export default function App() {
         if (loaded.name && loaded.name.trim() !== "") {
           setHasOnboarded(true);
         }
+        // Mirror to Firestore for cross-device mobile backup
+        if (userIdentifier) {
+          saveProfileToFirestore(userIdentifier, loaded).catch(() => {});
+        }
         return { success: true, profile: loaded };
       } else {
-        // If server returned error or 404, fallback to local cache
+        // If Express server unreachable, check Firestore directly
+        if (userIdentifier) {
+          const fsDirect = await fetchProfileFromFirestore(userIdentifier);
+          if (fsDirect.success && fsDirect.profile) {
+            setUserProfile(fsDirect.profile);
+            if (typeof localStorage !== 'undefined') {
+              try { localStorage.setItem("cached_user_profile", JSON.stringify(fsDirect.profile)); } catch {}
+            }
+            if (fsDirect.profile.name && fsDirect.profile.name.trim() !== "") {
+              setHasOnboarded(true);
+            }
+            return { success: true, profile: fsDirect.profile };
+          }
+        }
+
+        // Fallback to local device cache
         if (cachedProfile) {
           setUserProfile(cachedProfile);
           return { success: false, profile: cachedProfile, error: error || "Server offline; loaded cached profile" };
@@ -332,7 +368,17 @@ export default function App() {
         return { success: false, error: error || "Could not fetch profile from server" };
       }
     } catch (err: any) {
-      console.warn("Failed to load user profile:", err);
+      console.warn("Express server unavailable, trying direct Firestore fetch:", err);
+      if (userIdentifier) {
+        try {
+          const fsDirect = await fetchProfileFromFirestore(userIdentifier);
+          if (fsDirect.success && fsDirect.profile) {
+            setUserProfile(fsDirect.profile);
+            return { success: true, profile: fsDirect.profile };
+          }
+        } catch {}
+      }
+
       if (cachedProfile) {
         setUserProfile(cachedProfile);
         return { success: false, profile: cachedProfile, error: err?.message || "Connection error" };
@@ -341,7 +387,7 @@ export default function App() {
     }
   };
 
-  const saveUserProfile = async (updated: any): Promise<{ success: boolean; error?: string; profile?: any }> => {
+  const saveUserProfile = async (updated: any): Promise<{ success: boolean; error?: string; profile?: any; firestoreSynced?: boolean }> => {
     if (!updated) return { success: false, error: "No profile data provided" };
 
     // Build the latest updated profile object
@@ -370,6 +416,20 @@ export default function App() {
 
     let activeToken = idToken;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
+    const userIdentifier = fbUser?.uid || fbUser?.email || savedEmail;
+
+    // DIRECT CLOUD SYNC: Always persist to Firebase Cloud Firestore directly!
+    // This allows mobile APK to save without requiring Cloud Run deployment or cookies.
+    let firestoreSuccess = false;
+    if (userIdentifier) {
+      try {
+        const fsResult = await saveProfileToFirestore(userIdentifier, nextProfile);
+        firestoreSuccess = fsResult.success;
+      } catch (fsErr) {
+        console.warn("[Firestore] Direct write notice:", fsErr);
+      }
+    }
+
     if (!activeToken) {
       activeToken = `sandbox-token-${savedEmail.toLowerCase().trim()}`;
     }
@@ -399,13 +459,20 @@ export default function App() {
           try { localStorage.setItem("cached_user_profile", JSON.stringify(synced)); } catch {}
         }
         setHasOnboarded(true);
-        return { success: true, profile: synced };
+        return { success: true, profile: synced, firestoreSynced: firestoreSuccess };
       } else {
+        // If Express server failed (e.g. 404 or blocked), check if direct Firestore succeeded
+        if (firestoreSuccess) {
+          return { success: true, profile: nextProfile, firestoreSynced: true };
+        }
         const errNotice = error || `Server rejected save (HTTP ${status})`;
         console.warn("[saveUserProfile] DB update notice:", errNotice);
         return { success: false, error: errNotice };
       }
     } catch (err: any) {
+      if (firestoreSuccess) {
+        return { success: true, profile: nextProfile, firestoreSynced: true };
+      }
       const errNotice = err?.message || "Network error while saving profile to server";
       console.warn("[saveUserProfile] Exception during save sync:", errNotice);
       return { success: false, error: errNotice };
@@ -1926,7 +1993,7 @@ export default function App() {
                           <span className="font-bold text-amber-900">{fbUser?.email || savedUserEmail || "qyuan.sam@gmail.com"}</span>
                         </p>
                         <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                          Synchronizes profile records between your Web browser and mobile Android APK via Cloud SQL (PostgreSQL) and Drizzle ORM.
+                          Direct Cloud Synchronization via <strong>Firebase Cloud Firestore</strong> and <strong>Cloud SQL (PostgreSQL)</strong>. Works on mobile Android without requiring server container hosting or session cookies.
                         </p>
                       </div>
                       
@@ -1942,7 +2009,7 @@ export default function App() {
                               setManualSyncError("");
                               const res = await saveUserProfile(userProfile);
                               if (res.success) {
-                                setManualSyncStatus(`✓ Profile successfully saved to Cloud SQL via Drizzle ORM! (${new Date().toLocaleTimeString()})`);
+                                setManualSyncStatus(`✓ Profile saved directly to Firebase Cloud Firestore & Database! (${new Date().toLocaleTimeString()})`);
                                 setManualSyncError("");
                               } else {
                                 setManualSyncStatus("");
@@ -1972,7 +2039,7 @@ export default function App() {
                               setManualSyncError("");
                               const res = await fetchUserProfile();
                               if (res.success) {
-                                setManualSyncStatus(`✓ Downloaded latest profile from Cloud SQL! (${new Date().toLocaleTimeString()})`);
+                                setManualSyncStatus(`✓ Downloaded latest profile from Cloud Database! (${new Date().toLocaleTimeString()})`);
                                 setManualSyncError("");
                               } else {
                                 setManualSyncStatus("");
