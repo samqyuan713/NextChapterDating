@@ -274,9 +274,11 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const fetchUserProfile = async (tokenOverride?: string): Promise<{ success: boolean; profile?: any; error?: string }> => {
+  const fetchUserProfile = async (tokenOverride?: string): Promise<{ success: boolean; profile?: any; error?: string; source?: string }> => {
     let activeToken = tokenOverride || idToken;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
+    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+
     if (!activeToken) {
       activeToken = `sandbox-token-${savedEmail.toLowerCase().trim()}`;
     }
@@ -290,106 +292,118 @@ export default function App() {
       }
     }
 
-    // Direct Cloud Sync: First attempt or background sync with Firebase Cloud Firestore
-    const userIdentifier = fbUser?.uid || fbUser?.email || savedEmail;
-    if (userIdentifier) {
-      fetchProfileFromFirestore(userIdentifier).then((fsRes) => {
-        if (fsRes.success && fsRes.profile) {
-          setUserProfile(fsRes.profile);
-          if (typeof localStorage !== 'undefined') {
-            try { localStorage.setItem("cached_user_profile", JSON.stringify(fsRes.profile)); } catch {}
-          }
-          if (fsRes.profile.name && fsRes.profile.name.trim() !== "") {
-            setHasOnboarded(true);
-          }
-        }
-      }).catch((e) => console.warn("[Firestore] background fetch note:", e));
+    // 1. Fetch directly from Firebase Cloud Firestore (Direct Cloud Connection)
+    let firestoreProfile: any = null;
+    try {
+      const fsRes = await fetchProfileFromFirestore(userIdentifier);
+      if (fsRes.success && fsRes.profile) {
+        firestoreProfile = fsRes.profile;
+      }
+    } catch (e) {
+      console.warn("[Firestore] fetch error:", e);
     }
 
+    // 2. Fetch from Express /api/profile (Cloud SQL PostgreSQL) if reachable
+    let pgProfile: any = null;
     try {
-      const { ok, data, error } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
+      const { ok, data } = await safeJsonFetch<{ status: string; profile: any }>("/api/profile", {
         headers: {
           "Authorization": `Bearer ${activeToken}`
         }
       });
       if (ok && data && data.profile) {
-        const loaded = {
+        pgProfile = {
           name: data.profile.name || "",
           age: data.profile.age !== null && data.profile.age !== undefined ? Number(data.profile.age) : 50,
           location: data.profile.location || "",
           interests: Array.isArray(data.profile.interests) ? data.profile.interests : [],
           bio: data.profile.bio || "",
           relationshipGoal: data.profile.relationshipGoal || "Companionship & Shared Outings",
-          isSubscribed: Boolean(data.profile.isSubscribed)
+          isSubscribed: Boolean(data.profile.isSubscribed),
+          updatedAt: data.profile.updatedAt || undefined
         };
-        setUserProfile(loaded);
-        if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem("cached_user_profile", JSON.stringify(loaded)); } catch {}
-        }
-        if (loaded.name && loaded.name.trim() !== "") {
-          setHasOnboarded(true);
-        }
-        // Mirror to Firestore for cross-device mobile backup
-        if (userIdentifier) {
-          saveProfileToFirestore(userIdentifier, loaded).catch(() => {});
-        }
-        return { success: true, profile: loaded };
-      } else {
-        // If Express server unreachable, check Firestore directly
-        if (userIdentifier) {
-          const fsDirect = await fetchProfileFromFirestore(userIdentifier);
-          if (fsDirect.success && fsDirect.profile) {
-            setUserProfile(fsDirect.profile);
-            if (typeof localStorage !== 'undefined') {
-              try { localStorage.setItem("cached_user_profile", JSON.stringify(fsDirect.profile)); } catch {}
-            }
-            if (fsDirect.profile.name && fsDirect.profile.name.trim() !== "") {
-              setHasOnboarded(true);
-            }
-            return { success: true, profile: fsDirect.profile };
-          }
-        }
-
-        // Fallback to local device cache
-        if (cachedProfile) {
-          setUserProfile(cachedProfile);
-          return { success: false, profile: cachedProfile, error: error || "Server offline; loaded cached profile" };
-        }
-        const fallback = {
-          name: fbUser?.displayName || "Sam",
-          age: 50,
-          location: "Singapore",
-          interests: [],
-          bio: "",
-          relationshipGoal: "Companionship & Shared Outings",
-          isSubscribed: false
-        };
-        setUserProfile((prev) => prev || fallback);
-        return { success: false, error: error || "Could not fetch profile from server" };
       }
-    } catch (err: any) {
-      console.warn("Express server unavailable, trying direct Firestore fetch:", err);
-      if (userIdentifier) {
-        try {
-          const fsDirect = await fetchProfileFromFirestore(userIdentifier);
-          if (fsDirect.success && fsDirect.profile) {
-            setUserProfile(fsDirect.profile);
-            return { success: true, profile: fsDirect.profile };
-          }
-        } catch {}
-      }
-
-      if (cachedProfile) {
-        setUserProfile(cachedProfile);
-        return { success: false, profile: cachedProfile, error: err?.message || "Connection error" };
-      }
-      return { success: false, error: err?.message || "Connection error" };
+    } catch (e) {
+      console.warn("Express server unavailable during profile fetch:", e);
     }
+
+    // 3. Resolve authoritative profile (prioritize whichever store was updated more recently)
+    let chosenProfile: any = null;
+    let chosenSource = "cache";
+
+    if (firestoreProfile && pgProfile) {
+      if (firestoreProfile.updatedAt && pgProfile.updatedAt) {
+        if (new Date(firestoreProfile.updatedAt) >= new Date(pgProfile.updatedAt)) {
+          chosenProfile = firestoreProfile;
+          chosenSource = "Firebase Cloud Firestore";
+        } else {
+          chosenProfile = pgProfile;
+          chosenSource = "Cloud SQL (PostgreSQL)";
+        }
+      } else if (firestoreProfile.updatedAt) {
+        chosenProfile = firestoreProfile;
+        chosenSource = "Firebase Cloud Firestore";
+      } else {
+        chosenProfile = pgProfile;
+        chosenSource = "Cloud SQL (PostgreSQL)";
+      }
+    } else if (firestoreProfile) {
+      chosenProfile = firestoreProfile;
+      chosenSource = "Firebase Cloud Firestore";
+    } else if (pgProfile) {
+      chosenProfile = pgProfile;
+      chosenSource = "Cloud SQL (PostgreSQL)";
+    } else if (cachedProfile) {
+      chosenProfile = cachedProfile;
+      chosenSource = "Local Device Cache";
+    }
+
+    if (chosenProfile) {
+      setUserProfile(chosenProfile);
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem("cached_user_profile", JSON.stringify(chosenProfile)); } catch {}
+      }
+      if (chosenProfile.name && chosenProfile.name.trim() !== "") {
+        setHasOnboarded(true);
+      }
+
+      // Bidirectional sync: keep both stores aligned!
+      // If Firestore profile was chosen and PG is accessible, write into PG
+      if (chosenProfile === firestoreProfile && pgProfile) {
+        safeJsonFetch("/api/profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${activeToken}`
+          },
+          body: JSON.stringify(chosenProfile)
+        }).catch(() => {});
+      }
+      // If PG was chosen and Firestore is reachable, mirror to Firestore
+      if (chosenProfile === pgProfile && userIdentifier) {
+        saveProfileToFirestore(userIdentifier, chosenProfile).catch(() => {});
+      }
+
+      return { success: true, profile: chosenProfile, source: chosenSource };
+    }
+
+    const fallback = {
+      name: fbUser?.displayName || "Sam",
+      age: 50,
+      location: "Singapore",
+      interests: [],
+      bio: "",
+      relationshipGoal: "Companionship & Shared Outings",
+      isSubscribed: false
+    };
+    setUserProfile((prev) => prev || fallback);
+    return { success: false, error: "No profile found in cloud or cache", profile: fallback };
   };
 
   const saveUserProfile = async (updated: any): Promise<{ success: boolean; error?: string; profile?: any; firestoreSynced?: boolean }> => {
     if (!updated) return { success: false, error: "No profile data provided" };
 
+    const nowIso = new Date().toISOString();
     // Build the latest updated profile object
     const nextProfile = {
       name: updated.name !== undefined ? updated.name : (userProfile?.name || ""),
@@ -398,7 +412,8 @@ export default function App() {
       interests: Array.isArray(updated.interests) ? updated.interests : (userProfile?.interests || []),
       bio: updated.bio !== undefined ? updated.bio : (userProfile?.bio || ""),
       relationshipGoal: updated.relationshipGoal !== undefined ? updated.relationshipGoal : (userProfile?.relationshipGoal || "Companionship & Shared Outings"),
-      isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(userProfile?.isSubscribed)
+      isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(userProfile?.isSubscribed),
+      updatedAt: nowIso
     };
 
     // Optimistically update React state
@@ -416,16 +431,21 @@ export default function App() {
 
     let activeToken = idToken;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
-    const userIdentifier = fbUser?.uid || fbUser?.email || savedEmail;
+    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
 
     // DIRECT CLOUD SYNC: Always persist to Firebase Cloud Firestore directly!
     // This allows mobile APK to save without requiring Cloud Run deployment or cookies.
     let firestoreSuccess = false;
+    let firestoreErrMsg = "";
     if (userIdentifier) {
       try {
         const fsResult = await saveProfileToFirestore(userIdentifier, nextProfile);
         firestoreSuccess = fsResult.success;
-      } catch (fsErr) {
+        if (!fsResult.success && fsResult.error) {
+          firestoreErrMsg = fsResult.error;
+        }
+      } catch (fsErr: any) {
+        firestoreErrMsg = fsErr?.message || "Firestore sync issue";
         console.warn("[Firestore] Direct write notice:", fsErr);
       }
     }
@@ -473,7 +493,7 @@ export default function App() {
       if (firestoreSuccess) {
         return { success: true, profile: nextProfile, firestoreSynced: true };
       }
-      const errNotice = err?.message || "Network error while saving profile to server";
+      const errNotice = err?.message || firestoreErrMsg || "Network error while saving profile to server";
       console.warn("[saveUserProfile] Exception during save sync:", errNotice);
       return { success: false, error: errNotice };
     }
@@ -2039,7 +2059,7 @@ export default function App() {
                               setManualSyncError("");
                               const res = await fetchUserProfile();
                               if (res.success) {
-                                setManualSyncStatus(`✓ Downloaded latest profile from Cloud Database! (${new Date().toLocaleTimeString()})`);
+                                setManualSyncStatus(`✓ Downloaded latest profile from ${res.source || "Cloud Database"}! (${new Date().toLocaleTimeString()})`);
                                 setManualSyncError("");
                               } else {
                                 setManualSyncStatus("");

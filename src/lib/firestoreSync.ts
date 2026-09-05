@@ -9,14 +9,15 @@ export interface SyncedProfile {
   bio: string;
   relationshipGoal: string;
   isSubscribed: boolean;
-  updatedAt?: any;
+  updatedAt?: string;
 }
 
 /**
- * Derives a clean document key based on user email or user ID
+ * Derives a clean document key based on user email or user ID.
+ * Consistent across web and mobile by normalizing email to lowercase alphanumeric.
  */
 export function getProfileDocId(emailOrUid: string): string {
-  if (!emailOrUid) return "default-user";
+  if (!emailOrUid || emailOrUid.trim() === "") return "qyuan_sam_gmail_com";
   return emailOrUid.toLowerCase().trim().replace(/[^a-z0-9]/g, "_");
 }
 
@@ -27,10 +28,11 @@ export function getProfileDocId(emailOrUid: string): string {
 export async function saveProfileToFirestore(
   emailOrUid: string,
   profile: SyncedProfile
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; updatedAt?: string }> {
   try {
     const docId = getProfileDocId(emailOrUid);
     const userDocRef = doc(firestore, 'user_profiles', docId);
+    const nowIso = new Date().toISOString();
 
     const payload = {
       name: profile.name || "",
@@ -42,12 +44,12 @@ export async function saveProfileToFirestore(
       isSubscribed: Boolean(profile.isSubscribed),
       userId: emailOrUid,
       email: emailOrUid,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
       serverTimestamp: serverTimestamp()
     };
 
     await setDoc(userDocRef, payload, { merge: true });
-    return { success: true };
+    return { success: true, updatedAt: nowIso };
   } catch (err: any) {
     console.error("[Firestore] saveProfileToFirestore error:", err);
     return { success: false, error: err?.message || "Failed to save profile to Firestore" };
@@ -74,7 +76,8 @@ export async function fetchProfileFromFirestore(
         interests: Array.isArray(data.interests) ? data.interests : [],
         bio: data.bio || "",
         relationshipGoal: data.relationshipGoal || "Companionship & Shared Outings",
-        isSubscribed: Boolean(data.isSubscribed)
+        isSubscribed: Boolean(data.isSubscribed),
+        updatedAt: data.updatedAt || undefined
       };
       return { success: true, profile: loaded };
     } else {
