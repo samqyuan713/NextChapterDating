@@ -4,7 +4,7 @@
  */
 
 import { Profile } from "../types";
-import { calculateDistance } from "../lib/locationService";
+import { calculateDistance, POPULAR_CITY_PRESETS } from "../lib/locationService";
 
 export const INITIAL_MATCH_PROFILES: Profile[] = [
   {
@@ -276,7 +276,8 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
 ];
 
 /**
- * Augments list of profiles with calculated distances based on the user's GPS coordinates
+ * Augments list of profiles with calculated distances based on the user's GPS coordinates.
+ * Robustly falls back to preset companion coordinates or city presets if latitude/longitude is not present on the profile record.
  */
 export function augmentProfilesWithDistance(
   profiles: Profile[],
@@ -288,10 +289,32 @@ export function augmentProfilesWithDistance(
   }
 
   return profiles.map((p) => {
-    if (p.latitude !== undefined && p.longitude !== undefined) {
-      const { miles, km } = calculateDistance(userLat, userLon, p.latitude, p.longitude);
+    let pLat = p.latitude;
+    let pLon = p.longitude;
+
+    if (pLat === undefined || pLon === undefined) {
+      const match = INITIAL_MATCH_PROFILES.find((m) => m.id === p.id);
+      if (match && match.latitude !== undefined && match.longitude !== undefined) {
+        pLat = match.latitude;
+        pLon = match.longitude;
+      } else if (p.location) {
+        const cityMatch = POPULAR_CITY_PRESETS.find((c) =>
+          p.location.toLowerCase().includes(c.name.toLowerCase()) ||
+          c.name.toLowerCase().includes(p.location.toLowerCase())
+        );
+        if (cityMatch) {
+          pLat = cityMatch.latitude;
+          pLon = cityMatch.longitude;
+        }
+      }
+    }
+
+    if (pLat !== undefined && pLon !== undefined) {
+      const { miles, km } = calculateDistance(userLat, userLon, pLat, pLon);
       return {
         ...p,
+        latitude: pLat,
+        longitude: pLon,
         distanceMiles: miles,
         distanceKm: km
       };

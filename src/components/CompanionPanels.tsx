@@ -198,8 +198,8 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
   };
 
   return (
-    <div id="compass-pane" className="space-y-6 animate-fade-in">
-      <div className="bg-white border border-amber-100 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div id="compass-pane" className="space-y-6 animate-fade-in w-full">
+      <div className="bg-white border border-amber-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-serif font-bold text-amber-900 flex items-center gap-2">
             <Compass className="w-6 h-6 text-emerald-600 animate-pulse" />
@@ -951,15 +951,50 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   handleCreatePost,
   initialSalonMode = "dialogue"
 }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatBoxRef = useRef<HTMLDivElement>(null);
   const currentMatchChatHistory = selectedMatch ? (conversations[selectedMatch.id] || []) : [];
   const [salonMode, setSalonMode] = useState<"dialogue" | "cafe">(initialSalonMode);
   const [conversationMode, setConversationMode] = useState<"chat" | "melody">("chat");
   const [conversationsMobileTab, setConversationsMobileTab] = useState<"list" | "chat">("list");
+  const prevMessagesCountRef = useRef(currentMatchChatHistory.length);
+  const prevSelectedMatchIdRef = useRef(selectedMatch?.id);
 
+  // Default to the top on initial mount or when switching selected match
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [currentMatchChatHistory, isCompanionTyping]);
+    // If selectedMatch changed or initial mount, default strictly to the top
+    if (prevSelectedMatchIdRef.current !== selectedMatch?.id) {
+      prevSelectedMatchIdRef.current = selectedMatch?.id;
+      prevMessagesCountRef.current = currentMatchChatHistory.length;
+      window.scrollTo({ top: 0, behavior: "instant" });
+      if (chatBoxRef.current) {
+        chatBoxRef.current.scrollTop = 0;
+      }
+      return;
+    }
+
+    // Only scroll within the chat box if a NEW message was actually appended during an ongoing conversation
+    if (currentMatchChatHistory.length > prevMessagesCountRef.current) {
+      prevMessagesCountRef.current = currentMatchChatHistory.length;
+      if (chatBoxRef.current) {
+        chatBoxRef.current.scrollTo({
+          top: chatBoxRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    } else {
+      prevMessagesCountRef.current = currentMatchChatHistory.length;
+    }
+  }, [currentMatchChatHistory.length, selectedMatch?.id]);
+
+  // When AI starts typing during an active dialogue, gently scroll inside chat box only
+  useEffect(() => {
+    if (isCompanionTyping && chatBoxRef.current) {
+      chatBoxRef.current.scrollTo({
+        top: chatBoxRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [isCompanionTyping]);
 
   // Reset conversationMode to chat when the selected match changes
   useEffect(() => {
@@ -974,7 +1009,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   }, [selectedMatch?.id]);
 
   return (
-    <div id="conversations-pane" className="space-y-6 animate-fade-in">
+    <div id="conversations-pane" className="space-y-6 animate-fade-in w-full">
       {/* Header Bar & Mode Toggle */}
       <div className="bg-white border border-amber-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -1184,7 +1219,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
 
             {conversationMode === "chat" ? (
               <div className="space-y-6">
-                <div className="bg-amber-50/25 border border-amber-100/40 rounded-2xl p-4 h-[380px] overflow-y-auto space-y-3.5">
+                <div ref={chatBoxRef} className="bg-amber-50/25 border border-amber-100/40 rounded-2xl p-4 h-[380px] overflow-y-auto space-y-3.5">
                   {currentMatchChatHistory.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center text-amber-800/70 space-y-2">
                       <Coffee className="w-9 h-9 text-amber-300 animate-pulse" />
@@ -1255,7 +1290,6 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                       </div>
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="space-y-2">
@@ -1359,8 +1393,8 @@ export const StoryroomPanel: React.FC<StoryroomProps> = ({
   handleDeleteSavedStory
 }) => {
   return (
-    <div id="storyroom-pane" className="space-y-8 animate-fade-in">
-      <div className="bg-white border border-amber-100 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div id="storyroom-pane" className="space-y-6 animate-fade-in w-full">
+      <div className="bg-white border border-amber-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-serif font-bold text-amber-900 flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-blue-600 animate-pulse" />

@@ -823,8 +823,6 @@ export default function App() {
     syncCompanionData();
   }, [selectedMatch, idToken]);
 
-  // Ref for chat scrolling
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Loading/busy feedback hooks
   const [isPolishingBio, setIsPolishingBio] = useState(false);
@@ -993,14 +991,6 @@ export default function App() {
     setActiveTab("gardens");
   };
 
-  // Scroll to bottom of chat
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [conversations, selectedMatch, isCompanionTyping]);
 
   // Retrieve matches on mount & compute initial GPS distances
   useEffect(() => {
@@ -1014,7 +1004,15 @@ export default function App() {
         }
         const lat = userLocation?.latitude ?? 1.3521;
         const lon = userLocation?.longitude ?? 103.8198;
-        const augmented = augmentProfilesWithDistance(baseList, lat, lon);
+        const withCoords = baseList.map((p) => {
+          const match = INITIAL_MATCH_PROFILES.find((m) => m.id === p.id);
+          return {
+            ...p,
+            latitude: p.latitude ?? match?.latitude,
+            longitude: p.longitude ?? match?.longitude
+          };
+        });
+        const augmented = augmentProfilesWithDistance(withCoords, lat, lon);
         setMatches(augmented);
         // Set first companion as default selected
         if (augmented.length > 0) {
@@ -1850,7 +1848,7 @@ export default function App() {
 
       {/* Main navigation / brand header */}
       <header id="main-header" className="border-b border-amber-100 bg-white/70 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center gap-4">
+        <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-3 flex justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div id="brand-emblem" className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-rose-500 shadow-sm shrink-0">
               <Heart className="w-5 h-5 fill-rose-100" />
@@ -1964,8 +1962,8 @@ export default function App() {
       </header>
 
       {isSandboxMode && (
-        <div id="sandbox-banner" className="bg-amber-50 border-b border-amber-100 py-3 px-4">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800">
+        <div id="sandbox-banner" className="bg-amber-50 border-b border-amber-100 py-3 px-3.5 sm:px-6">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-amber-700 shrink-0 fill-amber-100" />
               <span>
@@ -1984,14 +1982,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Primary Container Layout */}
-      <main className="max-w-6xl mx-auto px-4 py-6 md:py-10 pb-28 md:pb-10">
+      {/* Primary Container Layout - Balanced max-w-4xl across all views */}
+      <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-36 md:pb-12">
         {activeTab === "my_profile" ? (
           /* EDIT PROFILE SECTION */
-          <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+          <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full">
             {/* Form Column */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-amber-100 rounded-3xl p-6 md:p-8 shadow-sm">
+              <div className="bg-white border border-amber-100 rounded-3xl p-5 sm:p-7 md:p-8 shadow-sm">
                 <div className="flex items-center gap-3 border-b border-amber-50 pb-4 mb-6">
                   <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
                     <PenSquare className="w-5 h-5" />
@@ -2825,7 +2823,7 @@ export default function App() {
                 onSelectPresetCity={handleSelectPresetCity}
               />
             ) : (
-              <div className="max-w-xl mx-auto space-y-4 px-2 py-2">
+              <div className="w-full space-y-4">
 
                 {/* Tinder-style GPS Nearby Radar & Radius Bar */}
                 <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-xs space-y-3">
@@ -2870,11 +2868,11 @@ export default function App() {
                       </button>
 
                       <select
+                        value={userLocation?.city || ""}
                         onChange={(e) => {
                           if (e.target.value) handleSelectPresetCity(e.target.value);
                         }}
                         className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer"
-                        defaultValue=""
                       >
                         <option value="" disabled>City Presets</option>
                         {POPULAR_CITY_PRESETS.map((preset) => (
@@ -3292,67 +3290,91 @@ export default function App() {
         )}
       </main>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <nav id="mobile-bottom-nav" className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-t border-amber-100/80 px-2 py-2 flex justify-around items-center shadow-lg animate-fade-in select-none">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("gardens");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center cursor-pointer transition-all ${
-            activeTab === "gardens" || activeTab === "compass" || activeTab === "search" ? "text-amber-950 font-bold" : "text-amber-700/70 hover:text-amber-900"
-          }`}
+      {/* FLOATING MOBILE BOTTOM NAVIGATION PANEL */}
+      <div className="md:hidden fixed bottom-3 sm:bottom-4 inset-x-3 sm:inset-x-6 max-w-md mx-auto z-50 pointer-events-none">
+        <nav
+          id="mobile-bottom-nav"
+          className="pointer-events-auto bg-white/95 backdrop-blur-xl border border-amber-200/90 shadow-[0_12px_36px_rgba(40,20,5,0.18)] rounded-2xl p-1.5 flex justify-around items-center select-none"
         >
-          <Compass className={`w-4.5 h-4.5 ${activeTab === "gardens" || activeTab === "compass" || activeTab === "search" ? "text-emerald-600 scale-110" : "text-amber-600/70"} transition-all`} />
-          <span className="text-[9px] mt-1 font-semibold tracking-tight">Explore & Compass</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("conversations");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center cursor-pointer transition-all ${
-            activeTab === "conversations" || activeTab === "cafe" ? "text-amber-950 font-bold" : "text-amber-700/70 hover:text-amber-900"
-          }`}
-        >
-          <div className="relative">
-            <MessageSquare className={`w-4.5 h-4.5 ${activeTab === "conversations" || activeTab === "cafe" ? "text-rose-500 scale-110" : "text-amber-600/70"} transition-all`} />
-          </div>
-          <span className="text-[9px] mt-1 font-semibold tracking-tight">Dialogue & Cafe</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("storyroom");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center cursor-pointer transition-all ${
-            activeTab === "storyroom" ? "text-amber-950 font-bold" : "text-amber-700/70 hover:text-amber-900"
-          }`}
-        >
-          <BookOpen className={`w-4.5 h-4.5 ${activeTab === "storyroom" ? "text-blue-600 scale-110" : "text-amber-600/70"} transition-all`} />
-          <span className="text-[9px] mt-1 font-semibold tracking-tight">Story</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("my_profile");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 text-center cursor-pointer transition-all ${
-            activeTab === "my_profile" ? "text-amber-950 font-bold" : "text-amber-700/70 hover:text-amber-900"
-          }`}
-        >
-          <User className={`w-4.5 h-4.5 ${activeTab === "my_profile" ? "text-purple-500 scale-110" : "text-amber-600/70"} transition-all`} />
-          <span className="text-[9px] mt-1 font-semibold tracking-tight">Profile</span>
-        </button>
-      </nav>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("gardens");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 text-center cursor-pointer transition-all rounded-xl ${
+              activeTab === "gardens" || activeTab === "compass" || activeTab === "search"
+                ? "bg-amber-950 text-white font-bold shadow-xs"
+                : "text-amber-800/80 hover:text-amber-950 hover:bg-amber-50/70"
+            }`}
+          >
+            <Compass className={`w-4 h-4 ${
+              activeTab === "gardens" || activeTab === "compass" || activeTab === "search" ? "text-emerald-400" : "text-amber-700"
+            }`} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-semibold">Explore</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("conversations");
+              window.scrollTo({ top: 0, behavior: "instant" });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 text-center cursor-pointer transition-all rounded-xl ${
+              activeTab === "conversations" || activeTab === "cafe"
+                ? "bg-amber-950 text-white font-bold shadow-xs"
+                : "text-amber-800/80 hover:text-amber-950 hover:bg-amber-50/70"
+            }`}
+          >
+            <div className="relative">
+              <MessageSquare className={`w-4 h-4 ${
+                activeTab === "conversations" || activeTab === "cafe" ? "text-rose-300" : "text-amber-700"
+              }`} />
+            </div>
+            <span className="text-[10px] mt-0.5 tracking-tight font-semibold">Dialogue</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("storyroom");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 text-center cursor-pointer transition-all rounded-xl ${
+              activeTab === "storyroom"
+                ? "bg-amber-950 text-white font-bold shadow-xs"
+                : "text-amber-800/80 hover:text-amber-950 hover:bg-amber-50/70"
+            }`}
+          >
+            <BookOpen className={`w-4 h-4 ${
+              activeTab === "storyroom" ? "text-blue-300" : "text-amber-700"
+            }`} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-semibold">Story</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("my_profile");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 text-center cursor-pointer transition-all rounded-xl ${
+              activeTab === "my_profile"
+                ? "bg-amber-950 text-white font-bold shadow-xs"
+                : "text-amber-800/80 hover:text-amber-950 hover:bg-amber-50/70"
+            }`}
+          >
+            <User className={`w-4 h-4 ${
+              activeTab === "my_profile" ? "text-purple-300" : "text-amber-700"
+            }`} />
+            <span className="text-[10px] mt-0.5 tracking-tight font-semibold">Profile</span>
+          </button>
+        </nav>
+      </div>
 
       {/* FOOTER */}
-      <footer id="main-footer" className="bg-[#FAF5EE] border-t border-amber-100 py-12 mt-20 text-center">
-        <div className="max-w-6xl mx-auto px-4 space-y-4">
+      <footer id="main-footer" className="bg-[#FAF5EE] border-t border-amber-100 py-12 pb-32 md:pb-12 mt-20 text-center">
+        <div className="max-w-4xl mx-auto px-3.5 sm:px-6 space-y-4">
           <div className="flex items-center justify-center gap-1.5">
             <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
             <h5 className="font-serif font-bold text-amber-900">Next Chapter Dating</h5>

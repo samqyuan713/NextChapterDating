@@ -66,7 +66,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-amber-100 to-amber-200 text-amber-800",
     height: 71, // 5'11"
     weight: 175,
-    gender: "Male"
+    gender: "Male",
+    latitude: 42.2314,
+    longitude: -88.2570
   },
   {
     id: "evelyn",
@@ -83,7 +85,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-rose-100 to-rose-200 text-rose-800",
     height: 66, // 5'6"
     weight: 132,
-    gender: "Female"
+    gender: "Female",
+    latitude: 37.8591,
+    longitude: -122.4853
   },
   {
     id: "frank",
@@ -100,7 +104,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-blue-100 to-blue-200 text-blue-800",
     height: 73, // 6'1"
     weight: 195,
-    gender: "Male"
+    gender: "Male",
+    latitude: 32.0809,
+    longitude: -81.0912
   },
   {
     id: "miriam",
@@ -117,7 +123,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-purple-100 to-purple-200 text-purple-800",
     height: 64, // 5'4"
     weight: 140,
-    gender: "Female"
+    gender: "Female",
+    latitude: 45.5152,
+    longitude: -122.6784
   },
   {
     id: "diana",
@@ -134,7 +142,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-emerald-100 to-emerald-200 text-emerald-800",
     height: 67, // 5'7"
     weight: 135,
-    gender: "Female"
+    gender: "Female",
+    latitude: 40.0150,
+    longitude: -105.2705
   },
   {
     id: "clara",
@@ -151,7 +161,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-teal-100 to-emerald-200 text-emerald-900",
     height: 65, // 5'5"
     weight: 125,
-    gender: "Female"
+    gender: "Female",
+    latitude: 37.8591,
+    longitude: -122.4853
   },
   {
     id: "eleanor",
@@ -168,7 +180,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-fuchsia-100 to-purple-250 text-purple-900",
     height: 63, // 5'3"
     weight: 118,
-    gender: "Female"
+    gender: "Female",
+    latitude: 42.2314,
+    longitude: -88.2570
   },
   {
     id: "grace",
@@ -185,7 +199,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-amber-100 to-orange-200 text-amber-950",
     height: 68, // 5'8"
     weight: 145,
-    gender: "Female"
+    gender: "Female",
+    latitude: 45.5152,
+    longitude: -122.6784
   },
   {
     id: "takashi",
@@ -202,7 +218,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-emerald-100 to-teal-100 text-teal-900",
     height: 66, // 5'6"
     weight: 140,
-    gender: "Male"
+    gender: "Male",
+    latitude: 35.0116,
+    longitude: 135.7681
   },
   {
     id: "meiling",
@@ -219,7 +237,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-pink-100 to-rose-200 text-rose-950",
     height: 62, // 5'2"
     weight: 122,
-    gender: "Female"
+    gender: "Female",
+    latitude: 1.3521,
+    longitude: 103.8198
   },
   {
     id: "sanjay",
@@ -236,7 +256,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-amber-100 to-yellow-250 text-amber-950",
     height: 69, // 5'9"
     weight: 158,
-    gender: "Male"
+    gender: "Male",
+    latitude: 19.0760,
+    longitude: 72.8777
   },
   {
     id: "leo",
@@ -253,7 +275,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-purple-200 to-indigo-300 text-indigo-900",
     height: 71, // 5'11"
     weight: 172,
-    gender: "Male"
+    gender: "Male",
+    latitude: 38.2975,
+    longitude: -122.2869
   },
   {
     id: "elena",
@@ -270,7 +294,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-rose-100 to-orange-200 text-rose-900",
     height: 66, // 5'6"
     weight: 128,
-    gender: "Female"
+    gender: "Female",
+    latitude: 30.2672,
+    longitude: -97.7431
   },
   {
     id: "marcus",
@@ -287,7 +313,9 @@ const MATCH_PROFILES = [
     avatarColor: "from-amber-200 to-stone-300 text-stone-900",
     height: 73, // 6'1"
     weight: 190,
-    gender: "Male"
+    gender: "Male",
+    latitude: 47.6062,
+    longitude: -122.3321
   }
 ];
 
