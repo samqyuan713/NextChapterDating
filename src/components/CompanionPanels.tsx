@@ -3,9 +3,11 @@ import { apiFetch, safeJsonFetch } from "../lib/api";
 import { 
   Compass, Search, MessageSquare, Coffee, BookOpen, Heart, MapPin, 
   Sparkles, Ruler, Scale, ChevronRight, Send, Loader2, CheckCircle2, 
-  SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus
+  SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
+  Navigation, Radio, LocateFixed
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
+import { formatDistance, POPULAR_CITY_PRESETS } from "../lib/locationService";
 
 // Constant presets matching App.tsx
 const INTERESTS_PRESETS = [
@@ -74,6 +76,17 @@ interface DiscoveryCompassProps {
   setCompassFocus: (val: string) => void;
   setSelectedMatch: (profile: Profile) => void;
   setActiveTab: (tab: string) => void;
+  userLocation?: { latitude: number; longitude: number; city?: string; source: string } | null;
+  onDetectLocation?: () => void;
+  isLocating?: boolean;
+  locationStatus?: string;
+  nearbyRadiusMiles?: number;
+  setNearbyRadiusMiles?: (val: number) => void;
+  onlyShowNearby?: boolean;
+  setOnlyShowNearby?: (val: boolean) => void;
+  sortByDistance?: boolean;
+  setSortByDistance?: (val: boolean) => void;
+  onSelectPresetCity?: (city: string) => void;
 }
 
 export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
@@ -100,10 +113,28 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
   compassFocus,
   setCompassFocus,
   setSelectedMatch,
-  setActiveTab
+  setActiveTab,
+  userLocation,
+  onDetectLocation,
+  isLocating,
+  locationStatus,
+  nearbyRadiusMiles = 50,
+  setNearbyRadiusMiles,
+  onlyShowNearby = false,
+  setOnlyShowNearby,
+  sortByDistance = false,
+  setSortByDistance,
+  onSelectPresetCity
 }) => {
   const filteredCompanions = matches.filter((companion) => {
     if (searchGender && searchGender !== "All" && companion.gender !== searchGender) return false;
+
+    // Proximity / Nearby filter (Tinder-style)
+    if (onlyShowNearby && nearbyRadiusMiles && nearbyRadiusMiles > 0) {
+      if (companion.distanceMiles === undefined || companion.distanceMiles > nearbyRadiusMiles) {
+        return false;
+      }
+    }
 
     if (searchKeyword && searchKeyword.trim()) {
       const keyword = searchKeyword.toLowerCase().trim();
@@ -142,6 +173,15 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
     }
 
     return true;
+  });
+
+  const displayCompanions = [...filteredCompanions].sort((a, b) => {
+    if (sortByDistance) {
+      const distA = a.distanceMiles !== undefined ? a.distanceMiles : 999999;
+      const distB = b.distanceMiles !== undefined ? b.distanceMiles : 999999;
+      return distA - distB;
+    }
+    return 0;
   });
 
   const handleReset = () => {
@@ -430,18 +470,160 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
             })}
           </div>
         </div>
+
+        {/* GPS Proximity / Tinder-style Nearby Radar Control */}
+        <div className="border-t border-amber-50 pt-5 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1.5">
+                <LocateFixed className="w-3.5 h-3.5 text-emerald-600" />
+                <span>GPS Proximity & Nearby Matching (Tinder-Style)</span>
+              </label>
+              <p className="text-[11px] text-amber-700">
+                Filter singles by distance from your current location using device GPS or local regions.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {onDetectLocation && (
+                <button
+                  type="button"
+                  onClick={onDetectLocation}
+                  disabled={isLocating}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  {isLocating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Pinpointing GPS...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Radio className="w-3.5 h-3.5 animate-pulse" />
+                      <span>Acquire Device GPS</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-emerald-50/30 border border-emerald-100/60 p-4 rounded-2xl">
+            {/* Detected Location Display & Preset Picker */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block">
+                Current Reference Location
+              </span>
+              <div className="flex items-center gap-1.5 text-xs text-amber-950 font-semibold bg-white px-3 py-2 rounded-xl border border-emerald-200/60 shadow-2xs">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">
+                  {userLocation ? (
+                    `${userLocation.city || "Detected GPS"} (${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°)`
+                  ) : (
+                    "GPS not yet locked (Defaulting to Singapore)"
+                  )}
+                </span>
+              </div>
+              {onSelectPresetCity && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) onSelectPresetCity(e.target.value);
+                  }}
+                  className="w-full bg-white border border-emerald-200/60 rounded-xl px-2.5 py-1.5 text-amber-900 text-[11px] font-medium focus:outline-none"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Switch to preset region...</option>
+                  {POPULAR_CITY_PRESETS.map((preset) => (
+                    <option key={preset.name} value={preset.name}>
+                      📍 {preset.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Distance Radius Filter Buttons */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[10px] font-bold text-emerald-900 uppercase tracking-wider">
+                <span>Maximum Radius</span>
+                <span>{nearbyRadiusMiles > 0 ? `${nearbyRadiusMiles} miles` : "Any distance"}</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {[15, 30, 50, 100, 250].map((radius) => (
+                  <button
+                    key={radius}
+                    type="button"
+                    onClick={() => {
+                      if (setNearbyRadiusMiles) setNearbyRadiusMiles(radius);
+                      if (setOnlyShowNearby) setOnlyShowNearby(true);
+                    }}
+                    className={`text-[10px] px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer ${
+                      onlyShowNearby && nearbyRadiusMiles === radius
+                        ? "bg-emerald-800 text-white border-emerald-800 shadow-2xs"
+                        : "bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50"
+                    }`}
+                  >
+                    &lt; {radius} mi
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setOnlyShowNearby) setOnlyShowNearby(false);
+                  }}
+                  className={`text-[10px] px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer ${
+                    !onlyShowNearby
+                      ? "bg-emerald-800 text-white border-emerald-800 shadow-2xs"
+                      : "bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50"
+                  }`}
+                >
+                  Anywhere
+                </button>
+              </div>
+              {locationStatus && (
+                <p className="text-[10px] text-emerald-700 font-medium italic mt-1">
+                  {locationStatus}
+                </p>
+              )}
+            </div>
+
+            {/* Distance Sorting & Toggle Options */}
+            <div className="space-y-2 flex flex-col justify-center">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-950">
+                <input
+                  type="checkbox"
+                  checked={onlyShowNearby}
+                  onChange={(e) => setOnlyShowNearby && setOnlyShowNearby(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Only show matches within {nearbyRadiusMiles} miles</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-950">
+                <input
+                  type="checkbox"
+                  checked={sortByDistance}
+                  onChange={(e) => setSortByDistance && setSortByDistance(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                />
+                <span>Sort list by nearest distance first 📍</span>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest px-2">
-          Found {filteredCompanions.length} Compatible Match Alignments
+        <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest px-2 flex items-center justify-between">
+          <span>Found {displayCompanions.length} Compatible Match Alignments</span>
+          {sortByDistance && <span className="text-emerald-700 font-bold lowercase">sorted by proximity</span>}
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredCompanions.length === 0 ? (
+          {displayCompanions.length === 0 ? (
             <div className="col-span-2 bg-white border border-amber-100 rounded-3xl p-12 text-center space-y-4">
               <p className="text-sm text-amber-700 font-medium">
-                No direct companions match your chosen filters. Try relaxing your parameters or clearing search criteria.
+                No direct companions match your chosen proximity or criteria. Try expanding your distance radius or clearing filters.
               </p>
               <button
                 type="button"
@@ -452,7 +634,7 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
               </button>
             </div>
           ) : (
-            filteredCompanions.map((companion) => {
+            displayCompanions.map((companion) => {
               const companionReport = compatibilityReports[companion.id];
               return (
                 <div
@@ -470,10 +652,17 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                             {companion.name}, <span className="font-sans text-sm font-semibold">{companion.age}</span>
                           </h4>
                           <p className="text-xs text-amber-850 font-medium">{companion.occupation}</p>
-                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600/90 font-bold uppercase tracking-wider mt-1">
-                            <MapPin className="w-3 h-3 text-emerald-600" />
-                            {companion.location}
-                          </span>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 font-bold uppercase tracking-wider">
+                              <MapPin className="w-3 h-3 text-emerald-600" />
+                              {companion.location}
+                            </span>
+                            {companion.distanceMiles !== undefined && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
+                                📍 {formatDistance(companion.distanceMiles, companion.distanceKm)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

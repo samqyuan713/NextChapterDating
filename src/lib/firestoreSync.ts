@@ -9,6 +9,10 @@ export interface SyncedProfile {
   bio: string;
   relationshipGoal: string;
   isSubscribed: boolean;
+  latitude?: number;
+  longitude?: number;
+  gpsEnabled?: boolean;
+  searchRadiusMiles?: number;
   updatedAt?: string;
 }
 
@@ -40,7 +44,7 @@ export async function saveProfileToFirestore(
     const userDocRef = doc(firestore, 'user_profiles', docId);
     const nowIso = new Date().toISOString();
 
-    const payload = {
+    const payload: any = {
       name: profile.name || "",
       age: profile.age !== undefined && profile.age !== null ? Number(profile.age) : 50,
       location: profile.location || "",
@@ -53,6 +57,19 @@ export async function saveProfileToFirestore(
       updatedAt: nowIso,
       serverTimestamp: serverTimestamp()
     };
+
+    if (profile.latitude !== undefined && profile.latitude !== null) {
+      payload.latitude = Number(profile.latitude);
+    }
+    if (profile.longitude !== undefined && profile.longitude !== null) {
+      payload.longitude = Number(profile.longitude);
+    }
+    if (profile.gpsEnabled !== undefined) {
+      payload.gpsEnabled = Boolean(profile.gpsEnabled);
+    }
+    if (profile.searchRadiusMiles !== undefined) {
+      payload.searchRadiusMiles = Number(profile.searchRadiusMiles);
+    }
 
     await setDoc(userDocRef, payload, { merge: true });
 
@@ -101,6 +118,10 @@ export async function fetchProfileFromFirestore(
         bio: data.bio || "",
         relationshipGoal: data.relationshipGoal || "Companionship & Shared Outings",
         isSubscribed: Boolean(data.isSubscribed),
+        latitude: data.latitude !== undefined && data.latitude !== null ? Number(data.latitude) : undefined,
+        longitude: data.longitude !== undefined && data.longitude !== null ? Number(data.longitude) : undefined,
+        gpsEnabled: data.gpsEnabled !== undefined ? Boolean(data.gpsEnabled) : undefined,
+        searchRadiusMiles: data.searchRadiusMiles !== undefined ? Number(data.searchRadiusMiles) : undefined,
         updatedAt: data.updatedAt || undefined
       };
       return { success: true, profile: loaded, docId: docSnap.id };

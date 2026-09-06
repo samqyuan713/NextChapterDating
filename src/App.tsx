@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Sparkles,
   Heart,
@@ -47,7 +47,10 @@ import {
   DownloadCloud,
   AlertTriangle,
   XCircle,
-  Check
+  Check,
+  LocateFixed,
+  Radio,
+  Navigation
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
@@ -56,6 +59,15 @@ import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEm
 import { motion, AnimatePresence } from "motion/react";
 import { apiFetch, safeJsonFetch, getActiveServerBaseUrl, setActiveServerBaseUrl, checkServerHealth, PRIMARY_DEV_SERVER_URL, SHARED_PREVIEW_SERVER_URL } from "./lib/api";
 import { saveProfileToFirestore, fetchProfileFromFirestore } from "./lib/firestoreSync";
+import { 
+  requestCurrentLocation, 
+  calculateDistance, 
+  formatDistance, 
+  reverseGeocodeCity, 
+  POPULAR_CITY_PRESETS,
+  GeoCoordinates 
+} from "./lib/locationService";
+import { INITIAL_MATCH_PROFILES, augmentProfilesWithDistance } from "./data/mockProfiles";
 
 // Standard interests user can select
 const INTERESTS_PRESETS = [
@@ -206,7 +218,31 @@ export default function App() {
     bio: string;
     relationshipGoal: string;
     isSubscribed?: boolean;
+    latitude?: number;
+    longitude?: number;
+    gpsEnabled?: boolean;
+    searchRadiusMiles?: number;
+    updatedAt?: string;
   } | null>(null);
+
+  // GPS Location & Tinder-style Proximity States
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    city?: string;
+    accuracy?: number;
+    source: "gps" | "preset" | "manual";
+  } | null>({
+    latitude: 1.3521,
+    longitude: 103.8198,
+    city: "Singapore",
+    source: "preset"
+  });
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [locationStatus, setLocationStatus] = useState<string>("");
+  const [nearbyRadiusMiles, setNearbyRadiusMiles] = useState<number>(50);
+  const [onlyShowNearby, setOnlyShowNearby] = useState<boolean>(false);
+  const [sortByDistance, setSortByDistance] = useState<boolean>(false);
 
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(false);
 
@@ -363,6 +399,14 @@ export default function App() {
 
     if (chosenProfile) {
       setUserProfile(chosenProfile);
+      if (chosenProfile.latitude !== undefined && chosenProfile.longitude !== undefined) {
+        setUserLocation({
+          latitude: chosenProfile.latitude,
+          longitude: chosenProfile.longitude,
+          city: chosenProfile.location || "Current Area",
+          source: chosenProfile.gpsEnabled ? "gps" : "preset"
+        });
+      }
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem("cached_user_profile", JSON.stringify(chosenProfile)); } catch {}
       }
@@ -397,7 +441,11 @@ export default function App() {
       interests: [],
       bio: "",
       relationshipGoal: "Companionship & Shared Outings",
-      isSubscribed: false
+      isSubscribed: false,
+      latitude: 1.3521,
+      longitude: 103.8198,
+      gpsEnabled: false,
+      searchRadiusMiles: 50
     };
     setUserProfile((prev) => prev || fallback);
     return { success: false, error: "No profile found in cloud or cache", profile: fallback };
@@ -416,6 +464,10 @@ export default function App() {
       bio: updated.bio !== undefined ? updated.bio : (userProfile?.bio || ""),
       relationshipGoal: updated.relationshipGoal !== undefined ? updated.relationshipGoal : (userProfile?.relationshipGoal || "Companionship & Shared Outings"),
       isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(userProfile?.isSubscribed),
+      latitude: updated.latitude !== undefined ? updated.latitude : userProfile?.latitude,
+      longitude: updated.longitude !== undefined ? updated.longitude : userProfile?.longitude,
+      gpsEnabled: updated.gpsEnabled !== undefined ? updated.gpsEnabled : userProfile?.gpsEnabled,
+      searchRadiusMiles: updated.searchRadiusMiles !== undefined ? updated.searchRadiusMiles : userProfile?.searchRadiusMiles,
       updatedAt: nowIso
     };
 
@@ -567,6 +619,18 @@ export default function App() {
   const [searchWeightMax, setSearchWeightMax] = useState<number>(240);
   const [searchSelectedHobbies, setSearchSelectedHobbies] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState<string>("");
+
+  // Proximity-filtered and distance-sorted deck for Tinder-like discovery
+  const deckCompanions = useMemo(() => {
+    let list = [...matches];
+    if (onlyShowNearby && nearbyRadiusMiles > 0) {
+      list = list.filter((m) => m.distanceMiles !== undefined && m.distanceMiles <= nearbyRadiusMiles);
+    }
+    if (sortByDistance) {
+      list.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+    }
+    return list;
+  }, [matches, onlyShowNearby, nearbyRadiusMiles, sortByDistance]);
 
   // Premium Subscription & Save states
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -938,27 +1002,109 @@ export default function App() {
     scrollToBottom();
   }, [conversations, selectedMatch, isCompanionTyping]);
 
-  // Retrieve matches on mount
+  // Retrieve matches on mount & compute initial GPS distances
   useEffect(() => {
     const fetchMatches = async () => {
       try {
         setLoadingMatches(true);
         const { ok, data } = await safeJsonFetch("/api/matches");
-        if (ok && data && data.matches) {
-          setMatches(data.matches);
-          // Set Arthur or first companion as default selected
-          if (data.matches.length > 0) {
-            setSelectedMatch(data.matches[0]);
-          }
+        let baseList = INITIAL_MATCH_PROFILES;
+        if (ok && data && data.matches && data.matches.length > 0) {
+          baseList = data.matches;
+        }
+        const lat = userLocation?.latitude ?? 1.3521;
+        const lon = userLocation?.longitude ?? 103.8198;
+        const augmented = augmentProfilesWithDistance(baseList, lat, lon);
+        setMatches(augmented);
+        // Set first companion as default selected
+        if (augmented.length > 0) {
+          setSelectedMatch(augmented[0]);
         }
       } catch (err) {
-        console.warn("Error fetching match profiles:", err);
+        console.warn("Error fetching match profiles, falling back to local dataset:", err);
+        const lat = userLocation?.latitude ?? 1.3521;
+        const lon = userLocation?.longitude ?? 103.8198;
+        const augmented = augmentProfilesWithDistance(INITIAL_MATCH_PROFILES, lat, lon);
+        setMatches(augmented);
+        if (augmented.length > 0) {
+          setSelectedMatch(augmented[0]);
+        }
       } finally {
         setLoadingMatches(false);
       }
     };
     fetchMatches();
   }, []);
+
+  // Handler to acquire device GPS coordinates via native Capacitor / HTML5 Geolocation
+  const handleDetectGPS = async () => {
+    setIsLocating(true);
+    setLocationStatus("Querying satellite & device GPS sensors...");
+    try {
+      const res = await requestCurrentLocation();
+      if (!res.success || !res.coordinates) {
+        throw new Error(res.error || "Could not retrieve GPS coordinates from device sensors");
+      }
+      const coords = res.coordinates;
+      const city = await reverseGeocodeCity(coords.latitude, coords.longitude);
+      const newLoc = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        city: city || userProfile?.location || "Current GPS Location",
+        accuracy: coords.accuracy,
+        source: "gps" as const
+      };
+      setUserLocation(newLoc);
+      setLocationStatus(`GPS Locked: ${newLoc.city} (±${Math.round(coords.accuracy || 15)}m accuracy)`);
+      
+      // Augment existing companion profiles with distance to this new GPS coordinate
+      setMatches((prev) => augmentProfilesWithDistance(prev, coords.latitude, coords.longitude));
+
+      // Persist to user profile and Cloud Firestore
+      if (userProfile) {
+        const updated = {
+          ...userProfile,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          location: city || userProfile.location,
+          gpsEnabled: true
+        };
+        setUserProfile(updated as any);
+        saveUserProfile(updated);
+      }
+    } catch (err: any) {
+      console.warn("GPS acquire error:", err);
+      setLocationStatus(err.message || "Failed to acquire GPS location");
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  // Handler to quickly set reference location to a preset city
+  const handleSelectPresetCity = (cityName: string) => {
+    const preset = POPULAR_CITY_PRESETS.find((p) => p.name === cityName);
+    if (!preset) return;
+    const newLoc = {
+      latitude: preset.latitude,
+      longitude: preset.longitude,
+      city: preset.name,
+      source: "preset" as const
+    };
+    setUserLocation(newLoc);
+    setLocationStatus(`Switched reference location to: ${preset.label}`);
+    setMatches((prev) => augmentProfilesWithDistance(prev, preset.latitude, preset.longitude));
+
+    if (userProfile) {
+      const updated = {
+        ...userProfile,
+        latitude: preset.latitude,
+        longitude: preset.longitude,
+        location: preset.name
+      };
+      setUserProfile(updated as any);
+      saveUserProfile(updated);
+    }
+  };
 
   // Handler to refine profile biography with Gemini
   const handlePolishBio = async () => {
@@ -1058,8 +1204,9 @@ export default function App() {
 
   // Swipe Handlers for Tinder-style swiper
   const handleSwipeAction = (direction: "left" | "right" | "super") => {
-    if (!matches || matches.length === 0) return;
-    const currentCompanion = matches[swipeIndex % matches.length];
+    const targetPool = deckCompanions.length > 0 ? deckCompanions : matches;
+    if (!targetPool || targetPool.length === 0) return;
+    const currentCompanion = targetPool[swipeIndex % targetPool.length];
     if (!currentCompanion) return;
 
     setSwipeDirection(direction);
@@ -1876,14 +2023,64 @@ export default function App() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-2">Current Location</label>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest">
+                        Current Location & GPS
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleDetectGPS}
+                        disabled={isLocating}
+                        className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition-all"
+                      >
+                        {isLocating ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Acquiring GPS...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Radio className="w-3 h-3 text-emerald-700 animate-pulse" />
+                            <span>Acquire Device GPS 📡</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={userProfile.location}
                       onChange={(e) => setUserProfile({ ...userProfile, location: e.target.value })}
+                      placeholder="e.g. Singapore, Sausalito, CA"
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     />
+                    <div className="flex items-center justify-between flex-wrap gap-2 text-[10px] text-amber-800">
+                      <div className="flex items-center gap-1 font-semibold">
+                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>
+                          {userLocation ? `Coordinates: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°` : "No GPS locked"}
+                        </span>
+                      </div>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) handleSelectPresetCity(e.target.value);
+                        }}
+                        className="bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5 text-[10px] font-medium text-amber-900 focus:outline-none"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Or pick preset region...</option>
+                        {POPULAR_CITY_PRESETS.map((preset) => (
+                          <option key={preset.name} value={preset.name}>
+                            📍 {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {locationStatus && (
+                      <p className="text-[10px] text-emerald-700 font-medium italic">
+                        {locationStatus}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1895,6 +2092,28 @@ export default function App() {
                       onChange={(e) => setUserProfile({ ...userProfile, relationshipGoal: e.target.value })}
                       placeholder="e.g. Companionship, Shared Travels Close Friends"
                     />
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider">Nearby Search Radius</span>
+                      <div className="flex items-center gap-1">
+                        {[15, 30, 50, 100].map((radius) => (
+                          <button
+                            key={radius}
+                            type="button"
+                            onClick={() => {
+                              setNearbyRadiusMiles(radius);
+                              setUserProfile({ ...userProfile, searchRadiusMiles: radius });
+                            }}
+                            className={`text-[10px] px-2 py-0.5 rounded-md border font-bold transition-all cursor-pointer ${
+                              nearbyRadiusMiles === radius
+                                ? "bg-amber-950 text-white border-amber-950"
+                                : "bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100"
+                            }`}
+                          >
+                            {radius} mi
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2593,27 +2812,182 @@ export default function App() {
                 setCompassFocus={setCompassFocus}
                 setSelectedMatch={setSelectedMatch}
                 setActiveTab={setActiveTab}
+                userLocation={userLocation}
+                onDetectLocation={handleDetectGPS}
+                isLocating={isLocating}
+                locationStatus={locationStatus}
+                nearbyRadiusMiles={nearbyRadiusMiles}
+                setNearbyRadiusMiles={setNearbyRadiusMiles}
+                onlyShowNearby={onlyShowNearby}
+                setOnlyShowNearby={setOnlyShowNearby}
+                sortByDistance={sortByDistance}
+                setSortByDistance={setSortByDistance}
+                onSelectPresetCity={handleSelectPresetCity}
               />
             ) : (
               <div className="max-w-xl mx-auto space-y-4 px-2 py-2">
+
+                {/* Tinder-style GPS Nearby Radar & Radius Bar */}
+                <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-xs space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Navigation className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-amber-950">Nearby Tinder Radar</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-850 font-bold border border-emerald-200">
+                            {userLocation?.city || "Singapore"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-amber-700 font-medium">
+                          {userLocation?.latitude && userLocation?.longitude
+                            ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}° • ${deckCompanions.length} companions in range`
+                            : "Detect GPS to discover matching companions near you"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleDetectGPS}
+                        disabled={isLocating}
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {isLocating ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Locating...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Radio className="w-3.5 h-3.5 text-emerald-200 animate-pulse" />
+                            <span>Acquire GPS 📡</span>
+                          </>
+                        )}
+                      </button>
+
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) handleSelectPresetCity(e.target.value);
+                        }}
+                        className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>City Presets</option>
+                        {POPULAR_CITY_PRESETS.map((preset) => (
+                          <option key={preset.name} value={preset.name}>
+                            📍 {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Radius and Distance Sorting Controls */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-100/60">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider mr-1">Radius:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOnlyShowNearby(false);
+                          setSwipeIndex(0);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          !onlyShowNearby
+                            ? "bg-amber-950 text-white shadow-xs"
+                            : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
+                        }`}
+                      >
+                        All Distances
+                      </button>
+                      {[15, 30, 50, 100].map((radius) => (
+                        <button
+                          key={radius}
+                          type="button"
+                          onClick={() => {
+                            setNearbyRadiusMiles(radius);
+                            setOnlyShowNearby(true);
+                            setSwipeIndex(0);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                            onlyShowNearby && nearbyRadiusMiles === radius
+                              ? "bg-emerald-700 text-white shadow-xs"
+                              : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
+                          }`}
+                        >
+                          &lt; {radius} mi
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortByDistance(!sortByDistance);
+                        setSwipeIndex(0);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        sortByDistance
+                          ? "bg-amber-800 text-white shadow-xs"
+                          : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
+                      }`}
+                    >
+                      <LocateFixed className="w-3 h-3" />
+                      <span>{sortByDistance ? "Closest First (Active)" : "Sort: Closest 📍"}</span>
+                    </button>
+                  </div>
+                </div>
 
             {loadingMatches ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-amber-700" />
                 <p className="text-xs text-amber-700 font-medium">Tending to companion cards...</p>
               </div>
-            ) : matches.length === 0 ? (
-              <div className="py-20 text-center text-amber-800 bg-white border border-amber-100 rounded-3xl p-8">
-                <p className="text-sm font-semibold">No companions found in this garden.</p>
+            ) : deckCompanions.length === 0 ? (
+              <div className="py-16 text-center text-amber-900 bg-white border border-amber-100 rounded-3xl p-8 space-y-4">
+                <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto border border-amber-200">
+                  <LocateFixed className="w-7 h-7 text-amber-700" />
+                </div>
+                <h3 className="font-serif font-bold text-lg text-amber-950">No Companions Found Within {nearbyRadiusMiles} Miles</h3>
+                <p className="text-xs text-amber-700 max-w-sm mx-auto">
+                  Try expanding your search radius to 100 miles, selecting a popular preset region, or viewing all companions anywhere.
+                </p>
+                <div className="flex justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNearbyRadiusMiles(100);
+                      setOnlyShowNearby(true);
+                      setSwipeIndex(0);
+                    }}
+                    className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all cursor-pointer shadow-xs"
+                  >
+                    Expand to &lt; 100 mi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnlyShowNearby(false);
+                      setSwipeIndex(0);
+                    }}
+                    className="px-4 py-2 bg-amber-100 text-amber-950 rounded-xl text-xs font-bold hover:bg-amber-200 transition-all cursor-pointer"
+                  >
+                    View All Anywhere
+                  </button>
+                </div>
               </div>
-            ) : swipeIndex >= matches.length ? (
+            ) : swipeIndex >= deckCompanions.length ? (
               <div className="bg-white border border-amber-150/40 rounded-3xl p-8 text-center shadow-md animate-fade-in my-6">
                 <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 border border-amber-200">
                   <Compass className="w-8 h-8 text-amber-700 animate-pulse-subtle" />
                 </div>
-                <h3 className="font-serif font-bold text-xl text-amber-950 mb-2">You Have Reviewed All Companions</h3>
+                <h3 className="font-serif font-bold text-xl text-amber-950 mb-2">You Have Reviewed All Companions in This Range</h3>
                 <p className="text-sm text-amber-900 leading-relaxed mb-6">
-                  You have explored all matching cards in our current discovery deck. Restart your journey anytime or jump straight into your active chats in the Dialogue Salon!
+                  You have explored all {deckCompanions.length} matching cards in your current discovery radius. Restart your deck anytime or jump straight into your active chats in the Dialogue Salon!
                 </p>
                 <div className="space-y-2.5">
                   <button
@@ -2636,17 +3010,17 @@ export default function App() {
               </div>
             ) : (
               (() => {
-                const currentCompanion = matches[swipeIndex];
+                const currentCompanion = deckCompanions[swipeIndex];
                 const companionReport = compatibilityReports[currentCompanion.id];
                 const currentMatchQuizAnswers = quizAnswers[currentCompanion.id] || {};
 
                 return (
                   <div className="relative">
                     {/* Card Stack Background (gives 3D depth) */}
-                    {swipeIndex + 1 < matches.length && (
+                    {swipeIndex + 1 < deckCompanions.length && (
                       <div className="absolute inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
                     )}
-                    {swipeIndex + 2 < matches.length && (
+                    {swipeIndex + 2 < deckCompanions.length && (
                       <div className="absolute inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
                     )}
 
@@ -2677,7 +3051,7 @@ export default function App() {
                       )}
 
                       <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest">
-                        <span>Card {swipeIndex + 1} of {matches.length}</span>
+                        <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
                         <span className="text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 font-bold">Next Chapter Match</span>
                       </div>
 
@@ -2701,11 +3075,16 @@ export default function App() {
                           <span className="text-[10px] text-amber-700 font-medium tracking-wider">{currentCompanion.chapterTheme}</span>
                         </p>
 
-                        <div className="flex items-center justify-center gap-3.5 mt-2.5 text-xs font-semibold text-amber-700">
+                        <div className="flex items-center justify-center gap-2 mt-2.5 text-xs font-semibold text-amber-700 flex-wrap">
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                             {currentCompanion.location}
                           </span>
+                          {currentCompanion.distanceMiles !== undefined && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[11px] shadow-2xs">
+                              📍 {formatDistance(currentCompanion.distanceMiles, currentCompanion.distanceKm)} away
+                            </span>
+                          )}
                           <span className="text-amber-200">|</span>
                           <span className="flex items-center gap-1">
                             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-50" />

@@ -21,6 +21,10 @@ export interface Profile {
   height?: number; // Height in inches (e.g. 71 for 5'11")
   weight?: number; // Weight in lbs (e.g. 175)
   gender?: string; // e.g. "Male" or "Female"
+  latitude?: number;
+  longitude?: number;
+  distanceMiles?: number;
+  distanceKm?: number;
 }
 
 export interface Message {
