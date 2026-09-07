@@ -6,6 +6,11 @@
   --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
 }
 
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Custom premium transitions & mobile optimizations */
 .animate-pulse-subtle {
   animation: pulse-subtle 3s infinite ease-in-out;

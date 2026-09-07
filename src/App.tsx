@@ -2059,13 +2059,13 @@ export default function App() {
       )}
 
       {/* Primary Container Layout - Balanced max-w-4xl across all views */}
-      <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-12">
+      <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-12 overflow-x-hidden min-w-0">
         {activeTab === "my_profile" ? (
           /* EDIT PROFILE SECTION */
-          <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full">
+          <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full max-w-full min-w-0">
             {/* Form Column */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-amber-100 rounded-3xl p-5 sm:p-7 md:p-8 shadow-sm">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
+              <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm">
                 <div className="flex items-center gap-3 border-b border-amber-50 pb-4 mb-6">
                   <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
                     <PenSquare className="w-5 h-5" />
@@ -2097,7 +2097,7 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <div className="flex justify-between items-center">
                       <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest">
                         Current Location & GPS
@@ -2157,7 +2157,7 @@ export default function App() {
                     )}
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-2">Relationship Focus</label>
                     <input
                       type="text"
@@ -2166,9 +2166,9 @@ export default function App() {
                       onChange={(e) => setUserProfile({ ...userProfile, relationshipGoal: e.target.value })}
                       placeholder="e.g. Companionship, Shared Travels Close Friends"
                     />
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
                       <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider">Nearby Search Radius</span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {[15, 30, 50, 100].map((radius) => (
                           <button
                             key={radius}
@@ -2531,13 +2531,13 @@ export default function App() {
                       </div>
 
                       {/* Custom Server URL Input */}
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <input
                           type="text"
                           value={customServerUrlInput}
                           onChange={(e) => setCustomServerUrlInput(e.target.value)}
                           placeholder="Or enter custom URL (e.g. https://... or http://192.168.1.x:3000)"
-                          className="flex-1 text-xs px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-amber-900 placeholder:text-amber-300"
+                          className="flex-1 min-w-0 text-xs px-3 py-2 rounded-xl border border-amber-200 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono text-amber-900 placeholder:text-amber-300"
                         />
                         <button
                           type="button"
@@ -2551,7 +2551,7 @@ export default function App() {
                               setManualSyncError("");
                             }
                           }}
-                          className="px-3 py-2 bg-amber-900 hover:bg-amber-950 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0"
+                          className="px-3 py-2 bg-amber-900 hover:bg-amber-950 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0 text-center"
                         >
                           Apply Target
                         </button>
@@ -2570,41 +2570,43 @@ export default function App() {
                     </span>
                   </h3>
                   
-                  <div className="p-5 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50/40 via-white to-amber-50/40 space-y-4">
+                  <div className="p-4 sm:p-5 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-rose-50/40 via-white to-amber-50/40 space-y-4">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
                       {/* Left: Icon previews */}
-                      <div className="flex items-center gap-4">
-                        {/* Squircle Preview */}
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-18 h-18 rounded-2xl p-1 bg-white border border-rose-200 shadow-md relative group overflow-hidden">
-                            <img
-                              src="/app-icon.png"
-                              alt="Next Chapter Mobile App Launcher Icon"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
-                            />
-                            <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-300" title="Active in Android Manifest" />
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full md:w-auto">
+                        <div className="flex items-center gap-3 shrink-0">
+                          {/* Squircle Preview */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl p-1 bg-white border border-rose-200 shadow-md relative group overflow-hidden">
+                              <img
+                                src="/app-icon.png"
+                                alt="Next Chapter Mobile App Launcher Icon"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
+                              />
+                              <span className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-300" title="Active in Android Manifest" />
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-900">Squircle Tile</span>
                           </div>
-                          <span className="text-[10px] font-bold text-amber-900">Squircle Tile</span>
-                        </div>
 
-                        {/* Circular Adaptive Preview */}
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div className="w-18 h-18 rounded-full p-1 bg-white border border-rose-200 shadow-md relative group overflow-hidden">
-                            <img
-                              src="/app-icon.png"
-                              alt="Next Chapter Mobile Round Launcher Icon"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-105"
-                            />
+                          {/* Circular Adaptive Preview */}
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-full p-1 bg-white border border-rose-200 shadow-md relative group overflow-hidden">
+                              <img
+                                src="/app-icon.png"
+                                alt="Next Chapter Mobile Round Launcher Icon"
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover rounded-full transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-900">Round Mask</span>
                           </div>
-                          <span className="text-[10px] font-bold text-amber-900">Round Mask</span>
                         </div>
 
                         {/* Details */}
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
-                            <Heart className="w-4 h-4 text-rose-500 fill-rose-100" />
+                            <Heart className="w-4 h-4 text-rose-500 fill-rose-100 shrink-0" />
                             <span>Luminous Pink Heart Icon</span>
                           </div>
                           <p className="text-[11px] text-amber-800 leading-relaxed max-w-sm">
@@ -2612,7 +2614,7 @@ export default function App() {
                           </p>
                           <div className="flex items-center gap-2 pt-1 flex-wrap">
                             <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-semibold">
-                              ✓ 5 Density Mipmaps (mdpi to xxxhdpi)
+                              ✓ 5 Density Mipmaps
                             </span>
                             <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 text-[10px] font-semibold">
                               ✓ Adaptive Icon API 26+
@@ -2644,8 +2646,8 @@ export default function App() {
 
                     <div className="pt-2 border-t border-rose-100 text-[11px] text-amber-700 flex items-center justify-between flex-wrap gap-2">
                       <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Configured in <code>android/app/src/main/res/mipmap-*/</code> for instant APK generation.</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Configured in <code className="break-all font-mono text-[10px]">android/app/src/main/res/mipmap-*/</code> for instant APK generation.</span>
                       </span>
                       <span className="text-[10px] text-amber-600 font-medium">Package: <code>com.nextchapter.dating</code></span>
                     </div>
@@ -2716,8 +2718,8 @@ export default function App() {
             </div>
 
             {/* Profile Preview Column */}
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-b from-amber-50 to-amber-100 border border-amber-100/80 rounded-3xl p-6 shadow-sm sticky top-24">
+            <div className="lg:col-span-1 min-w-0">
+              <div className="bg-gradient-to-b from-amber-50 to-amber-100 border border-amber-100/80 rounded-3xl p-4 sm:p-6 shadow-sm sticky top-24">
                 <h3 className="text-sm font-bold text-amber-900 uppercase tracking-widest text-center border-b border-amber-200/50 pb-3 mb-6">Your Profile Preview</h3>
                 
                 <div className="flex flex-col items-center text-center">
@@ -2743,7 +2745,7 @@ export default function App() {
                       <FileText className="w-3 h-3 text-amber-700" />
                       Biography
                     </h5>
-                    <p className="text-xs text-amber-800/90 leading-relaxed italic bg-white/40 p-4 rounded-2xl border border-white/60">
+                    <p className="text-xs text-amber-800/90 leading-relaxed italic bg-white/40 p-3 sm:p-4 rounded-2xl border border-white/60 break-words">
                       "{userProfile.bio || "No biography details written yet. Click Refine with AI to build one!"}"
                     </p>
                   </div>
@@ -2820,9 +2822,9 @@ export default function App() {
           />
         ) : (
           /* MERGED EXPLORE & COMPASS VIEW */
-          <div id="browse-pane" className="animate-fade-in space-y-6 w-full">
+          <div id="browse-pane" className="animate-fade-in space-y-6 w-full max-w-full min-w-0">
             {/* Header Title Banner with Sub-tab View Toggle */}
-            <div className="bg-white border border-amber-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <h2 className="text-xl md:text-2xl font-serif font-bold text-amber-950 flex items-center gap-2">
                   <Compass className="w-6 h-6 text-emerald-600" />
@@ -2833,29 +2835,29 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5 bg-amber-50/70 p-1.5 rounded-2xl border border-amber-100/80 self-stretch sm:self-auto shrink-0">
+              <div className="flex items-center gap-1.5 bg-amber-50/70 p-1.5 rounded-2xl border border-amber-100/80 w-full sm:w-auto self-stretch sm:self-auto shrink-0">
                 <button
                   type="button"
                   onClick={() => setExploreSubTab("deck")}
-                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-center ${
                     exploreSubTab === "deck"
                       ? "bg-amber-950 text-white shadow-xs"
                       : "text-amber-800 hover:bg-white/60"
                   }`}
                 >
-                  <span>🎴 Companion Cards</span>
+                  <span className="truncate">🎴 Companion Cards</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setExploreSubTab("compass")}
-                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-center ${
                     exploreSubTab === "compass"
                       ? "bg-amber-950 text-white shadow-xs"
                       : "text-amber-800 hover:bg-white/60"
                   }`}
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Discovery Compass</span>
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">Discovery Compass</span>
                 </button>
               </div>
             </div>
@@ -2899,23 +2901,23 @@ export default function App() {
                 onSelectPresetCity={handleSelectPresetCity}
               />
             ) : (
-              <div className="w-full space-y-4">
+              <div className="w-full max-w-full min-w-0 space-y-4">
 
                 {/* Tinder-style GPS Nearby Radar & Radius Bar */}
-                <div className="bg-white border border-amber-200/80 rounded-2xl p-4 shadow-xs space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="bg-white border border-amber-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                         <Navigation className="w-4 h-4" />
                       </span>
-                      <div>
-                        <div className="flex items-center gap-1.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-bold text-amber-950">Nearby Tinder Radar</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-850 font-bold border border-emerald-200">
                             {userLocation?.city || "Singapore"}
                           </span>
                         </div>
-                        <p className="text-[10px] text-amber-700 font-medium">
+                        <p className="text-[10px] text-amber-700 font-medium truncate">
                           {userLocation?.latitude && userLocation?.longitude
                             ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}° • ${deckCompanions.length} companions in range`
                             : "Detect GPS to discover matching companions near you"}
@@ -2923,12 +2925,12 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
                       <button
                         type="button"
                         onClick={handleDetectGPS}
                         disabled={isLocating}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs flex-1 sm:flex-initial"
                       >
                         {isLocating ? (
                           <>
@@ -2948,7 +2950,7 @@ export default function App() {
                         onChange={(e) => {
                           if (e.target.value) handleSelectPresetCity(e.target.value);
                         }}
-                        className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer"
+                        className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer flex-1 sm:flex-initial max-w-[150px] sm:max-w-none truncate"
                       >
                         <option value="" disabled>City Presets</option>
                         {POPULAR_CITY_PRESETS.map((preset) => (
@@ -2961,7 +2963,7 @@ export default function App() {
                   </div>
 
                   {/* Radius and Distance Sorting Controls */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-100/60">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-100/60">
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider mr-1">Radius:</span>
                       <button
@@ -2970,7 +2972,7 @@ export default function App() {
                           setOnlyShowNearby(false);
                           setSwipeIndex(0);
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        className={`px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
                           !onlyShowNearby
                             ? "bg-amber-950 text-white shadow-xs"
                             : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
@@ -2987,7 +2989,7 @@ export default function App() {
                             setOnlyShowNearby(true);
                             setSwipeIndex(0);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          className={`px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
                             onlyShowNearby && nearbyRadiusMiles === radius
                               ? "bg-emerald-700 text-white shadow-xs"
                               : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
@@ -3004,7 +3006,7 @@ export default function App() {
                         setSortByDistance(!sortByDistance);
                         setSwipeIndex(0);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 self-start sm:self-auto ${
                         sortByDistance
                           ? "bg-amber-800 text-white shadow-xs"
                           : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
@@ -3089,17 +3091,17 @@ export default function App() {
                 const currentMatchQuizAnswers = quizAnswers[currentCompanion.id] || {};
 
                 return (
-                  <div className="relative">
+                  <div className="relative w-full max-w-full min-w-0">
                     {/* Card Stack Background (gives 3D depth) */}
                     {swipeIndex + 1 < deckCompanions.length && (
-                      <div className="absolute inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
+                      <div className="absolute inset-x-2 sm:inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
                     )}
                     {swipeIndex + 2 < deckCompanions.length && (
-                      <div className="absolute inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
+                      <div className="absolute inset-x-4 sm:inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
                     )}
 
                     {/* Swipe Card Main Component */}
-                    <div className="bg-[#FAF8F5] border-2 border-amber-100/85 rounded-3xl p-6 md:p-7 shadow-md relative overflow-hidden z-10 premium-card-border animate-fade-in">
+                    <div className="bg-[#FAF8F5] border-2 border-amber-100/85 rounded-3xl p-4 sm:p-6 md:p-7 shadow-md relative overflow-hidden z-10 premium-card-border animate-fade-in">
                       {/* Decorative Top Trim */}
                       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-600 via-amber-200 to-emerald-600"></div>
 
@@ -3124,7 +3126,7 @@ export default function App() {
                         </div>
                       )}
 
-                      <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest flex-wrap gap-1">
                         <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
                         <span className="text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 font-bold">Next Chapter Match</span>
                       </div>
@@ -3132,18 +3134,18 @@ export default function App() {
                       {/* Avatar Frame */}
                       <div className="relative mx-auto my-5 flex justify-center">
                         <div className="absolute inset-0 bg-gradient-to-tr from-amber-200 to-rose-200 rounded-full blur-xl opacity-30 animate-pulse-subtle"></div>
-                        <div className={`w-28 h-28 rounded-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex items-center justify-center text-5xl shadow-lg border-4 border-white relative z-10`}>
+                        <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex items-center justify-center text-4xl sm:text-5xl shadow-lg border-4 border-white relative z-10`}>
                           {currentCompanion.avatarEmoji}
                         </div>
                       </div>
 
                       {/* Header Info */}
                       <div className="text-center">
-                        <h3 className="font-serif font-bold text-2xl text-amber-950 flex items-center justify-center gap-2">
-                          {currentCompanion.name}, <span className="font-sans text-xl font-semibold">{currentCompanion.age}</span>
+                        <h3 className="font-serif font-bold text-xl sm:text-2xl text-amber-950 flex items-center justify-center gap-2">
+                          {currentCompanion.name}, <span className="font-sans text-lg sm:text-xl font-semibold">{currentCompanion.age}</span>
                         </h3>
                         
-                        <p className="text-xs font-semibold text-amber-850 mt-1 flex items-center justify-center gap-1.5">
+                        <p className="text-xs font-semibold text-amber-850 mt-1 flex items-center justify-center gap-1.5 flex-wrap">
                           <span>{currentCompanion.occupation}</span>
                           <span className="text-amber-200">•</span>
                           <span className="text-[10px] text-amber-700 font-medium tracking-wider">{currentCompanion.chapterTheme}</span>
@@ -3159,7 +3161,7 @@ export default function App() {
                               📍 {formatDistance(currentCompanion.distanceMiles, currentCompanion.distanceKm)} away
                             </span>
                           )}
-                          <span className="text-amber-200">|</span>
+                          <span className="text-amber-200 hidden sm:inline">|</span>
                           <span className="flex items-center gap-1">
                             <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-50" />
                             Goal: {currentCompanion.relationshipGoal}
@@ -3167,17 +3169,17 @@ export default function App() {
                         </div>
 
                         {/* Direct Conversation CTA Button on Card */}
-                        <div className="mt-4">
+                        <div className="mt-4 flex justify-center">
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedMatch(currentCompanion);
                               setActiveTab("conversations");
                             }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.98] text-center"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
-                            <span>Start Conversation in Dialogue Salon</span>
+                            <MessageSquare className="w-3.5 h-3.5 text-rose-300 shrink-0" />
+                            <span className="truncate">Start Conversation in Dialogue</span>
                           </button>
                         </div>
                       </div>
@@ -3197,7 +3199,7 @@ export default function App() {
 
                         {isBioExpanded && (
                           <div className="mt-3 text-left space-y-3 animate-fade-in max-h-48 overflow-y-auto no-scrollbar scroll-momentum">
-                            <p className="text-xs text-amber-900 leading-relaxed italic bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50">
+                            <p className="text-xs text-amber-900 leading-relaxed italic bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50 break-words">
                               "{currentCompanion.bio}"
                             </p>
                             <div>
@@ -3237,7 +3239,7 @@ export default function App() {
                                 <div className="flex items-center justify-between">
                                   <h4 className="font-serif font-bold text-sm text-emerald-950">Harmony Report ({companionReport.matchScore}% Match)</h4>
                                 </div>
-                                <p className="text-xs text-amber-900 italic font-medium leading-relaxed">
+                                <p className="text-xs text-amber-900 italic font-medium leading-relaxed break-words">
                                   "{companionReport.summary}"
                                 </p>
                                 <div>
@@ -3245,7 +3247,7 @@ export default function App() {
                                   <ul className="space-y-1">
                                     {companionReport.sharedStrengths.map((str, idx) => (
                                       <li key={idx} className="text-[11px] text-amber-900 flex items-center gap-1.5 font-medium">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                         <span>{str}</span>
                                       </li>
                                     ))}
@@ -3314,46 +3316,46 @@ export default function App() {
                     </div>
 
                     {/* Controls Panel Below Card */}
-                    <div className="flex items-center justify-center gap-4 mt-6">
+                    <div className="flex items-center justify-center gap-3 sm:gap-4 mt-6">
                       {/* Rewind */}
                       <button
                         onClick={handleSwipeRewind}
                         disabled={swipeIndex === 0}
-                        className={`p-3.5 rounded-full border transition-all ${
+                        className={`p-3 sm:p-3.5 rounded-full border transition-all ${
                           swipeIndex === 0
                             ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
                             : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
                         }`}
                         title="Rewind Last Swipe"
                       >
-                        <Undo2 className="w-5 h-5" />
+                        <Undo2 className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
 
                       {/* Pass / Dislike */}
                       <button
                         onClick={() => handleSwipeAction("left")}
-                        className="p-5 rounded-full bg-white border border-amber-200 text-amber-900 hover:bg-amber-50 hover:text-amber-950 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center animate-pulse-subtle"
+                        className="p-4 sm:p-5 rounded-full bg-white border border-amber-200 text-amber-900 hover:bg-amber-50 hover:text-amber-950 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center animate-pulse-subtle"
                         title="Pass (Swipe Left)"
                       >
-                        <span className="text-xl font-bold leading-none">✕</span>
+                        <span className="text-lg sm:text-xl font-bold leading-none">✕</span>
                       </button>
 
                       {/* Super Match */}
                       <button
                         onClick={() => handleSwipeAction("super")}
-                        className="p-3.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs"
+                        className="p-3 sm:p-3.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs"
                         title="Super Connect! (Sparkles)"
                       >
-                        <Sparkles className="w-5 h-5 text-emerald-600 fill-emerald-100" />
+                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 fill-emerald-100" />
                       </button>
 
                       {/* Connect / Like */}
                       <button
                         onClick={() => handleSwipeAction("right")}
-                        className="p-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center"
+                        className="p-4 sm:p-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center"
                         title="Connect & Chat! (Swipe Right)"
                       >
-                        <Heart className="w-6 h-6 fill-rose-100" />
+                        <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-rose-100" />
                       </button>
                     </div>
                   </div>
