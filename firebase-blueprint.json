@@ -17,12 +17,43 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["userId", "email"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Individual message sent by user or companion",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Conversation thread between user and companion match",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "matchId": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["userId", "matchId"]
     }
   },
   "firestore": {
     "/user_profiles/{userId}": {
       "schema": "UserProfile",
       "description": "Direct cross-device synchronized user profile documents"
+    },
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Direct cross-device synchronized conversation metadata"
+    },
+    "/conversations/{convId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Direct cross-device synchronized conversation messages"
     }
   }
 }

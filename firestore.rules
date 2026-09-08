@@ -2,10 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /user_profiles/{userId} {
-      // Allow reading if authenticated or if matching user document
-      allow read: if true;
-      // Allow writing to user profile
-      allow write: if true;
+      allow read, write: if true;
+    }
+    match /conversations/{convId} {
+      allow read, write: if true;
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+    match /user_conversations/{userId}/{document=**} {
+      allow read, write: if true;
     }
   }
 }

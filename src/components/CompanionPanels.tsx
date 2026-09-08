@@ -1175,7 +1175,13 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-amber-950 text-lg leading-tight">Dialogue with {selectedMatch.name}</h3>
-                  <p className="text-[11px] font-semibold text-amber-700">{selectedMatch.occupation} • {selectedMatch.location}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <p className="text-[11px] font-semibold text-amber-700">{selectedMatch.occupation} • {selectedMatch.location}</p>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Cloud Sync (Phone & Web)
+                    </span>
+                  </div>
                 </div>
               </div>
 
