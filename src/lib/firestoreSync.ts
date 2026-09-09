@@ -33,7 +33,7 @@ export interface SyncedProfile {
  * Consistent across web and mobile by normalizing email to lowercase alphanumeric.
  */
 export function getProfileDocId(emailOrUid: string): string {
-  if (!emailOrUid || emailOrUid.trim() === "") return "qyuan_sam_gmail_com";
+  if (!emailOrUid || emailOrUid.trim() === "") return "sam_abc_com";
   let clean = emailOrUid.toLowerCase().trim();
   // Strip any sandbox prefixes so sandbox-uid-sam-abc-com maps cleanly to sam_abc_com
   clean = clean
@@ -148,7 +148,7 @@ export async function fetchProfileFromFirestore(
 
 /**
  * Derives conversation document ID based on user and companion match ID.
- * Examples: "qyuan_sam_gmail_com_meiling", "sam_abc_com_arthur"
+ * Examples: "sam_abc_com_meiling", "sam_abc_com_arthur"
  */
 export function getConversationDocId(emailOrUid: string, matchId: string): string {
   const userKey = getProfileDocId(emailOrUid);
@@ -157,8 +157,16 @@ export function getConversationDocId(emailOrUid: string, matchId: string): strin
 }
 
 /**
+ * Returns all potential conversation document IDs for a user account.
+ */
+export function getAllConversationDocIds(emailOrUid: string, matchId: string): string[] {
+  return [getConversationDocId(emailOrUid, matchId)];
+}
+
+/**
  * Saves an individual chat message to Firebase Cloud Firestore.
- * Updates both the parent conversation metadata and the subcollection message document.
+ * Updates both the parent conversation metadata and the subcollection message document,
+ * mirroring across user aliases so mobile and computer always share the conversation.
  */
 export async function saveMessageToFirestore(
   emailOrUid: string,
@@ -166,33 +174,36 @@ export async function saveMessageToFirestore(
   message: Message
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const convId = getConversationDocId(emailOrUid, matchId);
-    const convDocRef = doc(firestore, 'conversations', convId);
-    const msgDocRef = doc(firestore, 'conversations', convId, 'messages', message.id);
+    const allConvIds = getAllConversationDocIds(emailOrUid, matchId);
     const nowIso = message.timestamp || new Date().toISOString();
 
-    // 1. Update parent conversation document metadata
-    await setDoc(
-      convDocRef,
-      {
-        userId: emailOrUid,
-        matchId: matchId,
-        lastUpdated: nowIso,
-        lastMessageText: message.text,
-        lastSenderId: message.senderId,
-        serverTimestamp: serverTimestamp()
-      },
-      { merge: true }
-    );
+    for (const convId of allConvIds) {
+      const convDocRef = doc(firestore, 'conversations', convId);
+      const msgDocRef = doc(firestore, 'conversations', convId, 'messages', message.id);
 
-    // 2. Write the individual message document into subcollection
-    await setDoc(msgDocRef, {
-      id: message.id,
-      senderId: message.senderId,
-      text: message.text,
-      timestamp: nowIso,
-      serverTimestamp: serverTimestamp()
-    });
+      // 1. Update parent conversation document metadata
+      await setDoc(
+        convDocRef,
+        {
+          userId: emailOrUid,
+          matchId: matchId,
+          lastUpdated: nowIso,
+          lastMessageText: message.text,
+          lastSenderId: message.senderId,
+          serverTimestamp: serverTimestamp()
+        },
+        { merge: true }
+      );
+
+      // 2. Write the individual message document into subcollection
+      await setDoc(msgDocRef, {
+        id: message.id,
+        senderId: message.senderId,
+        text: message.text,
+        timestamp: nowIso,
+        serverTimestamp: serverTimestamp()
+      }, { merge: true });
+    }
 
     return { success: true };
   } catch (err: any) {
@@ -203,48 +214,38 @@ export async function saveMessageToFirestore(
 
 /**
  * Fetches the entire message history directly from Firebase Cloud Firestore.
- * Automatically ordered chronologically by timestamp.
+ * Automatically ordered chronologically by timestamp and merged across aliases.
  */
 export async function fetchMessagesFromFirestore(
   emailOrUid: string,
   matchId: string
 ): Promise<{ success: boolean; messages: Message[]; error?: string }> {
   try {
-    const convId = getConversationDocId(emailOrUid, matchId);
-    const messagesCollRef = collection(firestore, 'conversations', convId, 'messages');
-    const q = query(messagesCollRef, orderBy('timestamp', 'asc'));
-    const snapshot = await getDocs(q);
+    const allConvIds = getAllConversationDocIds(emailOrUid, matchId);
+    const messageMap = new Map<string, Message>();
 
-    const messages: Message[] = [];
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      messages.push({
-        id: data.id || docSnap.id,
-        senderId: data.senderId || 'user',
-        text: data.text || '',
-        timestamp: data.timestamp || new Date().toISOString()
-      });
-    });
+    for (const convId of allConvIds) {
+      const messagesCollRef = collection(firestore, 'conversations', convId, 'messages');
+      const q = query(messagesCollRef, orderBy('timestamp', 'asc'));
+      const snapshot = await getDocs(q);
 
-    // Fallback: If 0 messages found and user has alias (e.g. sam@abc.com vs qyuan.sam@gmail.com), check alias
-    if (messages.length === 0) {
-      const aliasKey = emailOrUid.includes("qyuan") ? "sam_abc_com" : "qyuan_sam_gmail_com";
-      const aliasConvId = `${aliasKey}_${(matchId || "").toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-      if (aliasConvId !== convId) {
-        const aliasColl = collection(firestore, 'conversations', aliasConvId, 'messages');
-        const aliasQ = query(aliasColl, orderBy('timestamp', 'asc'));
-        const aliasSnap = await getDocs(aliasQ);
-        aliasSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          messages.push({
-            id: data.id || docSnap.id,
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const msgId = data.id || docSnap.id;
+        if (!messageMap.has(msgId)) {
+          messageMap.set(msgId, {
+            id: msgId,
             senderId: data.senderId || 'user',
             text: data.text || '',
             timestamp: data.timestamp || new Date().toISOString()
           });
-        });
-      }
+        }
+      });
     }
+
+    const messages = Array.from(messageMap.values()).sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
 
     return { success: true, messages };
   } catch (err: any) {
@@ -255,38 +256,55 @@ export async function fetchMessagesFromFirestore(
 
 /**
  * Subscribes to real-time message changes for a given match in Firestore.
- * Works seamlessly across web and mobile without manual polling.
+ * Listens across alias conversations to guarantee live sync between mobile and desktop.
  */
 export function subscribeToMessagesFromFirestore(
   emailOrUid: string,
   matchId: string,
   onUpdate: (messages: Message[]) => void
 ): Unsubscribe {
-  const convId = getConversationDocId(emailOrUid, matchId);
-  const messagesCollRef = collection(firestore, 'conversations', convId, 'messages');
-  const q = query(messagesCollRef, orderBy('timestamp', 'asc'));
+  const allConvIds = getAllConversationDocIds(emailOrUid, matchId);
+  const unsubs: Unsubscribe[] = [];
+  const combinedMap = new Map<string, Message>();
 
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const loaded: Message[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        loaded.push({
-          id: data.id || docSnap.id,
-          senderId: data.senderId || 'user',
-          text: data.text || '',
-          timestamp: data.timestamp || new Date().toISOString()
-        });
-      });
-      if (loaded.length > 0) {
-        onUpdate(loaded);
-      }
-    },
-    (err) => {
-      console.warn(`[Firestore] onSnapshot listener warning for ${matchId}:`, err);
+  const dispatchUpdate = () => {
+    const list = Array.from(combinedMap.values()).sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    if (list.length > 0) {
+      onUpdate(list);
     }
-  );
+  };
+
+  allConvIds.forEach((convId) => {
+    const messagesCollRef = collection(firestore, 'conversations', convId, 'messages');
+    const q = query(messagesCollRef, orderBy('timestamp', 'asc'));
+
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const msgId = data.id || docSnap.id;
+          combinedMap.set(msgId, {
+            id: msgId,
+            senderId: data.senderId || 'user',
+            text: data.text || '',
+            timestamp: data.timestamp || new Date().toISOString()
+          });
+        });
+        dispatchUpdate();
+      },
+      (err) => {
+        console.warn(`[Firestore] onSnapshot listener warning for ${convId}:`, err);
+      }
+    );
+    unsubs.push(unsub);
+  });
+
+  return () => {
+    unsubs.forEach((u) => u());
+  };
 }
 
 /**

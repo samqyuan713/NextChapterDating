@@ -324,7 +324,7 @@ export default function App() {
     emailOverride?: string
   ): Promise<{ success: boolean; profile?: any; error?: string; source?: string; docId?: string }> => {
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
-    const userIdentifier = emailOverride || fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+    const userIdentifier = emailOverride || fbUser?.email || savedEmail || fbUser?.uid || "sam@abc.com";
     let activeToken = tokenOverride || idToken;
 
     if (!activeToken) {
@@ -494,8 +494,8 @@ export default function App() {
     }
 
     let activeToken = idToken;
-    const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "qyuan.sam@gmail.com";
-    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+    const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null) || fbUser?.email || "sam@abc.com";
+    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "sam@abc.com";
 
     if (typeof localStorage !== 'undefined') {
       try {
@@ -790,7 +790,7 @@ export default function App() {
     if (!selectedMatch) return;
     const matchId = selectedMatch.id;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
-    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "sam@abc.com";
 
     // 1. DIRECT CLOUD FIRESTORE REAL-TIME LISTENER:
     // Subscribes to Firestore collection /conversations/{user_match}/messages
@@ -1319,7 +1319,7 @@ export default function App() {
 
     const matchId = selectedMatch.id;
     const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
-    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "qyuan.sam@gmail.com";
+    const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || "sam@abc.com";
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -2449,7 +2449,7 @@ export default function App() {
                         <p className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
                           <Server className="w-3.5 h-3.5 text-amber-700" />
                           <span>Connected Account:</span>
-                          <span className="font-bold text-amber-900">{fbUser?.email || savedUserEmail || "qyuan.sam@gmail.com"}</span>
+                          <span className="font-bold text-amber-900">{fbUser?.email || savedUserEmail || "sam@abc.com"}</span>
                         </p>
                         <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
                           Direct Cloud Synchronization via <strong>Firebase Cloud Firestore</strong> and <strong>Cloud SQL (PostgreSQL)</strong>. Works on mobile Android without requiring server container hosting or session cookies.
