@@ -612,9 +612,22 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"gardens" | "my_profile" | "search" | "cafe" | "conversations" | "compass" | "storyroom">("gardens");
   const [exploreSubTab, setExploreSubTab] = useState<"deck" | "compass">("deck");
 
+  // Ref to the scrollable main container underneath the fixed header
+  const mainScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = (behavior: ScrollBehavior = "smooth") => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior });
+    }
+    window.scrollTo({ top: 0, behavior });
+  };
+
   useEffect(() => {
     if (activeTab === "compass" || activeTab === "search") {
       setExploreSubTab("compass");
+    }
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: "instant" });
     }
   }, [activeTab]);
 
@@ -1964,12 +1977,12 @@ export default function App() {
   }
 
   return (
-    <div id="next-chapter-app" className="min-h-screen bg-[#FBF9F6] text-amber-950 font-sans selection:bg-amber-200 selection:text-amber-900">
+    <div id="next-chapter-app" className="h-screen max-h-screen flex flex-col overflow-hidden bg-[#FBF9F6] text-amber-950 font-sans selection:bg-amber-200 selection:text-amber-900">
       {/* Decorative Warm Accent Border at very top */}
-      <div id="top-accent-bar" className="h-2 bg-gradient-to-r from-amber-200 via-rose-300 to-emerald-200 w-full" />
+      <div id="top-accent-bar" className="h-1.5 sm:h-2 bg-gradient-to-r from-amber-200 via-rose-300 to-emerald-200 w-full shrink-0" />
 
-      {/* Main navigation / brand header */}
-      <header id="main-header" className="border-b border-amber-100 bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-2xs">
+      {/* Main navigation / brand header - Permanently fixed at top with crisp opaque surface */}
+      <header id="main-header" className="shrink-0 border-b border-amber-200/80 bg-white shadow-xs z-40 relative">
         <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-2.5 sm:py-3">
           <div className="flex justify-between items-center gap-3">
             <div className="flex items-center gap-2.5 sm:gap-3">
@@ -2003,7 +2016,10 @@ export default function App() {
               <nav id="header-nav" className="hidden md:flex items-center bg-amber-50/50 p-1 rounded-xl border border-amber-100 gap-1">
                 <button
                   id="tab-gardens"
-                  onClick={() => setActiveTab("gardens")}
+                  onClick={() => {
+                    setActiveTab("gardens");
+                    scrollToTop("smooth");
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     activeTab === "gardens" || activeTab === "compass" || activeTab === "search"
                       ? "bg-white text-amber-900 shadow-sm border border-amber-100"
@@ -2015,7 +2031,10 @@ export default function App() {
                 </button>
                 <button
                   id="tab-conversations"
-                  onClick={() => setActiveTab("conversations")}
+                  onClick={() => {
+                    setActiveTab("conversations");
+                    scrollToTop("smooth");
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     activeTab === "conversations" || activeTab === "cafe"
                       ? "bg-white text-amber-900 shadow-sm border border-amber-100"
@@ -2027,7 +2046,10 @@ export default function App() {
                 </button>
                 <button
                   id="tab-storyroom"
-                  onClick={() => setActiveTab("storyroom")}
+                  onClick={() => {
+                    setActiveTab("storyroom");
+                    scrollToTop("smooth");
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     activeTab === "storyroom"
                       ? "bg-white text-amber-900 shadow-sm border border-amber-100"
@@ -2039,7 +2061,10 @@ export default function App() {
                 </button>
                 <button
                   id="tab-profile"
-                  onClick={() => setActiveTab("my_profile")}
+                  onClick={() => {
+                    setActiveTab("my_profile");
+                    scrollToTop("smooth");
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     activeTab === "my_profile"
                       ? "bg-white text-amber-900 shadow-sm border border-amber-100"
@@ -2093,7 +2118,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab("gardens");
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                scrollToTop("smooth");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeTab === "gardens" || activeTab === "compass" || activeTab === "search"
@@ -2110,7 +2135,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab("conversations");
-                window.scrollTo({ top: 0, behavior: "instant" });
+                scrollToTop("instant");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeTab === "conversations" || activeTab === "cafe"
@@ -2127,7 +2152,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab("storyroom");
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                scrollToTop("smooth");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeTab === "storyroom"
@@ -2144,7 +2169,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab("my_profile");
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                scrollToTop("smooth");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
                 activeTab === "my_profile"
@@ -2160,7 +2185,7 @@ export default function App() {
       </header>
 
       {isSandboxMode && (
-        <div id="sandbox-banner" className="bg-amber-50 border-b border-amber-100 py-3 px-3.5 sm:px-6">
+        <div id="sandbox-banner" className="shrink-0 bg-amber-50 border-b border-amber-100 py-3 px-3.5 sm:px-6">
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-amber-700 shrink-0 fill-amber-100" />
@@ -2180,8 +2205,14 @@ export default function App() {
         </div>
       )}
 
-      {/* Primary Container Layout - Balanced max-w-4xl across all views */}
-      <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-12 overflow-x-hidden min-w-0">
+      {/* Scrollable Page Body - Moving scroll bar only moves page content below the fixed header */}
+      <div
+        id="main-scroll-container"
+        ref={mainScrollRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col scroll-momentum"
+      >
+        {/* Primary Container Layout - Balanced max-w-4xl across all views */}
+        <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-12 overflow-x-hidden min-w-0 flex-1">
         {activeTab === "my_profile" ? (
           /* EDIT PROFILE SECTION */
           <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full max-w-full min-w-0">
@@ -2815,7 +2846,7 @@ export default function App() {
                           setProfileSaveSuccess(true);
                           setTimeout(() => setProfileSaveSuccess(false), 3000);
                           setActiveTab("gardens");
-                          window.scrollTo({ top: 0, behavior: "smooth" });
+                          scrollToTop("smooth");
                         }}
                         className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
                       >
@@ -2841,7 +2872,7 @@ export default function App() {
 
             {/* Profile Preview Column */}
             <div className="lg:col-span-1 min-w-0">
-              <div className="bg-gradient-to-b from-amber-50 to-amber-100 border border-amber-100/80 rounded-3xl p-4 sm:p-6 shadow-sm sticky top-24">
+              <div className="bg-gradient-to-b from-amber-50 to-amber-100 border border-amber-100/80 rounded-3xl p-4 sm:p-6 shadow-sm sticky top-6">
                 <h3 className="text-sm font-bold text-amber-900 uppercase tracking-widest text-center border-b border-amber-200/50 pb-3 mb-6">Your Profile Preview</h3>
                 
                 <div className="flex flex-col items-center text-center">
@@ -2891,7 +2922,7 @@ export default function App() {
                       setProfileSaveSuccess(true);
                       setTimeout(() => setProfileSaveSuccess(false), 3000);
                       setActiveTab("gardens");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                      scrollToTop("smooth");
                       saveUserProfile(userProfile).catch(console.error);
                     }}
                     className="w-full py-3 px-4 rounded-xl bg-amber-950 hover:bg-amber-900 text-white font-semibold transition-all text-xs cursor-pointer shadow-sm flex items-center justify-center gap-2"
@@ -3490,21 +3521,22 @@ export default function App() {
         )}
       </main>
 
-      {/* FOOTER */}
-      <footer id="main-footer" className="bg-[#FAF5EE] border-t border-amber-100 py-12 mt-16 md:mt-20 text-center">
-        <div className="max-w-4xl mx-auto px-3.5 sm:px-6 space-y-4">
-          <div className="flex items-center justify-center gap-1.5">
-            <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-            <h5 className="font-serif font-bold text-amber-900">Next Chapter Dating</h5>
+        {/* FOOTER */}
+        <footer id="main-footer" className="bg-[#FAF5EE] border-t border-amber-100 py-12 mt-16 md:mt-20 text-center shrink-0">
+          <div className="max-w-4xl mx-auto px-3.5 sm:px-6 space-y-4">
+            <div className="flex items-center justify-center gap-1.5">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <h5 className="font-serif font-bold text-amber-900">Next Chapter Dating</h5>
+            </div>
+            <p className="text-xs text-amber-700 max-w-md mx-auto leading-relaxed">
+              Dating for Next Chapter is designed with profound respect, spacious accessibility metrics, and AI matching parameters. Live beautifully, connect safely, and share standard laughter.
+            </p>
+            <div className="text-[10px] text-amber-600/80">
+              <span>Next Chapter Applet © {new Date().getFullYear()} • Powered via Gemini AI Studio Models</span>
+            </div>
           </div>
-          <p className="text-xs text-amber-700 max-w-md mx-auto leading-relaxed">
-            Dating for Next Chapter is designed with profound respect, spacious accessibility metrics, and AI matching parameters. Live beautifully, connect safely, and share standard laughter.
-          </p>
-          <div className="text-[10px] text-amber-600/80">
-            <span>Next Chapter Applet © {new Date().getFullYear()} • Powered via Gemini AI Studio Models</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
 
       {/* Subscription Upgrade Modal Overlay */}
       {showSubscriptionModal && (
