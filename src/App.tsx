@@ -2212,7 +2212,7 @@ export default function App() {
         className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col scroll-momentum"
       >
         {/* Primary Container Layout - Balanced max-w-4xl across all views */}
-        <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-5 md:py-8 pb-12 overflow-x-hidden min-w-0 flex-1">
+        <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-3.5 sm:py-5 pb-6 overflow-x-hidden min-w-0 flex-1">
         {activeTab === "my_profile" ? (
           /* EDIT PROFILE SECTION */
           <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full max-w-full min-w-0">
@@ -3522,17 +3522,16 @@ export default function App() {
       </main>
 
         {/* FOOTER */}
-        <footer id="main-footer" className="bg-[#FAF5EE] border-t border-amber-100 py-12 mt-16 md:mt-20 text-center shrink-0">
-          <div className="max-w-4xl mx-auto px-3.5 sm:px-6 space-y-4">
-            <div className="flex items-center justify-center gap-1.5">
-              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-              <h5 className="font-serif font-bold text-amber-900">Next Chapter Dating</h5>
+        <footer id="main-footer" className="bg-[#FAF5EE]/80 border-t border-amber-200/60 py-3.5 mt-4 sm:mt-6 text-center shrink-0">
+          <div className="max-w-4xl mx-auto px-3.5 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-1.5 text-xs text-amber-700">
+            <div className="flex items-center gap-1.5">
+              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
+              <span className="font-serif font-bold text-amber-900 text-xs">Next Chapter Dating</span>
+              <span className="hidden sm:inline text-amber-300">•</span>
+              <span className="text-[11px] text-amber-800">Warm connections for mature hearts</span>
             </div>
-            <p className="text-xs text-amber-700 max-w-md mx-auto leading-relaxed">
-              Dating for Next Chapter is designed with profound respect, spacious accessibility metrics, and AI matching parameters. Live beautifully, connect safely, and share standard laughter.
-            </p>
-            <div className="text-[10px] text-amber-600/80">
-              <span>Next Chapter Applet © {new Date().getFullYear()} • Powered via Gemini AI Studio Models</span>
+            <div className="text-[10px] text-amber-600/75">
+              <span>© {new Date().getFullYear()} Next Chapter Dating • AI Powered</span>
             </div>
           </div>
         </footer>
