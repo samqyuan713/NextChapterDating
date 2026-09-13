@@ -17,22 +17,161 @@ export interface GeoCoordinates {
 export interface CityPreset {
   name: string;
   label: string;
+  shortName?: string;
+  flag?: string;
   latitude: number;
   longitude: number;
+  region?: 'sea' | 'asia' | 'namerica' | 'europe';
 }
 
-export const POPULAR_CITY_PRESETS: CityPreset[] = [
-  { name: "Singapore", label: "Singapore (Central)", latitude: 1.3521, longitude: 103.8198 },
-  { name: "Sausalito, CA", label: "San Francisco Bay Area / Sausalito, CA", latitude: 37.8591, longitude: -122.4853 },
-  { name: "Oakwood Hills, IL", label: "Chicago Metro / Oakwood Hills, IL", latitude: 42.2314, longitude: -88.2570 },
-  { name: "Austin, TX", label: "Austin, TX", latitude: 30.2672, longitude: -97.7431 },
-  { name: "Savannah, GA", label: "Savannah, GA", latitude: 32.0809, longitude: -81.0912 },
-  { name: "Portland, OR", label: "Portland, OR", latitude: 45.5152, longitude: -122.6784 },
-  { name: "Boulder, CO", label: "Boulder, CO", latitude: 40.0150, longitude: -105.2705 },
-  { name: "Seattle, WA", label: "Seattle, WA", latitude: 47.6062, longitude: -122.3321 },
-  { name: "Kyoto, Japan", label: "Kyoto, Japan", latitude: 35.0116, longitude: 135.7681 },
-  { name: "London, UK", label: "London, United Kingdom", latitude: 51.5074, longitude: -0.1278 }
+// Southeast Asian regional presets
+export const SEA_CITY_PRESETS: CityPreset[] = [
+  { name: "Singapore", label: "Singapore", shortName: "Singapore", flag: "🇸🇬", latitude: 1.3521, longitude: 103.8198, region: 'sea' },
+  { name: "Kuala Lumpur, MY", label: "Kuala Lumpur, Malaysia", shortName: "Kuala Lumpur", flag: "🇲🇾", latitude: 3.1390, longitude: 101.6869, region: 'sea' },
+  { name: "Penang, MY", label: "Penang, Malaysia", shortName: "Penang", flag: "🇲🇾", latitude: 5.4141, longitude: 100.3288, region: 'sea' },
+  { name: "Bangkok, TH", label: "Bangkok, Thailand", shortName: "Bangkok", flag: "🇹🇭", latitude: 13.7563, longitude: 100.5018, region: 'sea' },
+  { name: "Jakarta, ID", label: "Jakarta, Indonesia", shortName: "Jakarta", flag: "🇮🇩", latitude: -6.2088, longitude: 106.8456, region: 'sea' },
+  { name: "Bali, ID", label: "Bali / Denpasar, Indonesia", shortName: "Bali", flag: "🇮🇩", latitude: -8.6705, longitude: 115.2126, region: 'sea' },
+  { name: "Manila, PH", label: "Manila, Philippines", shortName: "Manila", flag: "🇵🇭", latitude: 14.5995, longitude: 120.9842, region: 'sea' },
+  { name: "Ho Chi Minh City, VN", label: "Ho Chi Minh City, Vietnam", shortName: "Ho Chi Minh", flag: "🇻🇳", latitude: 10.8231, longitude: 106.6297, region: 'sea' },
 ];
+
+// Extended Asian regional cities (East Asia & South Asia)
+export const ASIA_EXTENDED_PRESETS: CityPreset[] = [
+  { name: "Tokyo, Japan", label: "Tokyo, Japan", shortName: "Tokyo", flag: "🇯🇵", latitude: 35.6762, longitude: 139.6503, region: 'asia' },
+  { name: "Kyoto, Japan", label: "Kyoto, Japan", shortName: "Kyoto", flag: "🇯🇵", latitude: 35.0116, longitude: 135.7681, region: 'asia' },
+  { name: "Hong Kong", label: "Hong Kong", shortName: "Hong Kong", flag: "🇭🇰", latitude: 22.3193, longitude: 114.1694, region: 'asia' },
+  { name: "Taipei, Taiwan", label: "Taipei, Taiwan", shortName: "Taipei", flag: "🇹🇼", latitude: 25.0330, longitude: 121.5654, region: 'asia' },
+  { name: "Seoul, Korea", label: "Seoul, South Korea", shortName: "Seoul", flag: "🇰🇷", latitude: 37.5665, longitude: 126.9780, region: 'asia' },
+  { name: "Mumbai, India", label: "Mumbai, India", shortName: "Mumbai", flag: "🇮🇳", latitude: 19.0760, longitude: 72.8777, region: 'asia' }
+];
+
+export const ASIAN_REGIONAL_PRESETS: CityPreset[] = [
+  ...SEA_CITY_PRESETS,
+  ...ASIA_EXTENDED_PRESETS
+];
+
+// North American city presets (with concise labels so dropdowns do not exceed container width)
+export const NORTH_AMERICA_PRESETS: CityPreset[] = [
+  { name: "Sausalito, CA", label: "Sausalito / SF Bay, CA", shortName: "Sausalito", flag: "🇺🇸", latitude: 37.8591, longitude: -122.4853, region: 'namerica' },
+  { name: "Oakwood Hills, IL", label: "Oakwood Hills / Chicago, IL", shortName: "Chicago Metro", flag: "🇺🇸", latitude: 42.2314, longitude: -88.2570, region: 'namerica' },
+  { name: "Austin, TX", label: "Austin, TX", shortName: "Austin", flag: "🇺🇸", latitude: 30.2672, longitude: -97.7431, region: 'namerica' },
+  { name: "Seattle, WA", label: "Seattle, WA", shortName: "Seattle", flag: "🇺🇸", latitude: 47.6062, longitude: -122.3321, region: 'namerica' },
+  { name: "Portland, OR", label: "Portland, OR", shortName: "Portland", flag: "🇺🇸", latitude: 45.5152, longitude: -122.6784, region: 'namerica' },
+  { name: "Boulder, CO", label: "Boulder, CO", shortName: "Boulder", flag: "🇺🇸", latitude: 40.0150, longitude: -105.2705, region: 'namerica' },
+  { name: "Savannah, GA", label: "Savannah, GA", shortName: "Savannah", flag: "🇺🇸", latitude: 32.0809, longitude: -81.0912, region: 'namerica' },
+  { name: "New York, NY", label: "New York, NY", shortName: "New York", flag: "🇺🇸", latitude: 40.7128, longitude: -74.0060, region: 'namerica' },
+];
+
+// European city presets
+export const EUROPE_PRESETS: CityPreset[] = [
+  { name: "London, UK", label: "London, UK", shortName: "London", flag: "🇬🇧", latitude: 51.5074, longitude: -0.1278, region: 'europe' },
+  { name: "Paris, France", label: "Paris, France", shortName: "Paris", flag: "🇫🇷", latitude: 48.8566, longitude: 2.3522, region: 'europe' },
+  { name: "Berlin, Germany", label: "Berlin, Germany", shortName: "Berlin", flag: "🇩🇪", latitude: 52.5200, longitude: 13.4050, region: 'europe' },
+  { name: "Amsterdam, NL", label: "Amsterdam, NL", shortName: "Amsterdam", flag: "🇳🇱", latitude: 52.3676, longitude: 4.9041, region: 'europe' },
+];
+
+// Comprehensive catalog of all presets
+export const ALL_CITY_PRESETS: CityPreset[] = [
+  ...ASIAN_REGIONAL_PRESETS,
+  ...NORTH_AMERICA_PRESETS,
+  ...EUROPE_PRESETS
+];
+
+// Backward-compatible default list
+export const POPULAR_CITY_PRESETS: CityPreset[] = ALL_CITY_PRESETS;
+
+export type WorldRegion = 'sea' | 'asia' | 'namerica' | 'europe' | 'global';
+
+/**
+ * Detects the macro region based on GPS coordinates.
+ * Defaults to Southeast Asia (Singapore) when coordinates are unavailable or in SEA.
+ */
+export function detectWorldRegion(lat?: number, lon?: number): WorldRegion {
+  if (lat === undefined || lon === undefined) {
+    return 'sea'; // Default home region is Southeast Asia
+  }
+
+  // Southeast Asia (approx: lat -12° to 25°N, lon 92° to 142°E)
+  if (lat >= -12 && lat <= 25 && lon >= 92 && lon <= 142) {
+    return 'sea';
+  }
+
+  // Broader East / South / North Asia (lat -12° to 55°N, lon 65° to 150°E)
+  if (lat >= -12 && lat <= 55 && lon >= 65 && lon <= 150) {
+    return 'asia';
+  }
+
+  // Europe (lat 35° to 72°N, lon -15° to 45°E)
+  if (lat >= 35 && lat <= 72 && lon >= -15 && lon <= 45) {
+    return 'europe';
+  }
+
+  // North America (lat 15° to 75°N, lon -170° to -50°W)
+  if (lat >= 15 && lat <= 75 && lon >= -170 && lon <= -50) {
+    return 'namerica';
+  }
+
+  return 'global';
+}
+
+export interface RegionPresetData {
+  region: WorldRegion;
+  regionLabel: string;
+  regionShortBadge: string;
+  regionalPresets: CityPreset[];
+  otherPresets: CityPreset[];
+  allPresets: CityPreset[];
+}
+
+/**
+ * Returns prioritized city presets dynamically adapted to current GPS coordinates.
+ * When in SEA or broader Asia, returns Asian regional cities as primary presets.
+ */
+export function getPresetsForLocation(lat?: number, lon?: number): RegionPresetData {
+  const region = detectWorldRegion(lat, lon);
+
+  let regionLabel = "Asian Regional";
+  let regionShortBadge = "SEA / Asia";
+  let regionalPresets: CityPreset[] = ASIAN_REGIONAL_PRESETS;
+  let otherPresets: CityPreset[] = [...NORTH_AMERICA_PRESETS, ...EUROPE_PRESETS];
+
+  if (region === 'sea') {
+    regionLabel = "Southeast Asia (SEA)";
+    regionShortBadge = "SEA";
+    regionalPresets = ASIAN_REGIONAL_PRESETS;
+    otherPresets = [...NORTH_AMERICA_PRESETS, ...EUROPE_PRESETS];
+  } else if (region === 'asia') {
+    regionLabel = "Asia Regional";
+    regionShortBadge = "Asia";
+    regionalPresets = ASIAN_REGIONAL_PRESETS;
+    otherPresets = [...NORTH_AMERICA_PRESETS, ...EUROPE_PRESETS];
+  } else if (region === 'namerica') {
+    regionLabel = "North America";
+    regionShortBadge = "N. America";
+    regionalPresets = NORTH_AMERICA_PRESETS;
+    otherPresets = [...ASIAN_REGIONAL_PRESETS, ...EUROPE_PRESETS];
+  } else if (region === 'europe') {
+    regionLabel = "Europe";
+    regionShortBadge = "Europe";
+    regionalPresets = EUROPE_PRESETS;
+    otherPresets = [...ASIAN_REGIONAL_PRESETS, ...NORTH_AMERICA_PRESETS];
+  } else {
+    regionLabel = "Global Presets";
+    regionShortBadge = "Global";
+    regionalPresets = ALL_CITY_PRESETS;
+    otherPresets = [];
+  }
+
+  return {
+    region,
+    regionLabel,
+    regionShortBadge,
+    regionalPresets,
+    otherPresets,
+    allPresets: ALL_CITY_PRESETS
+  };
+}
 
 /**
  * Calculates great-circle distance between two points on the Earth's surface (Haversine formula).

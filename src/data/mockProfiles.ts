@@ -272,6 +272,44 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     gender: "Male",
     latitude: 47.6062,
     longitude: -122.3321
+  },
+  {
+    id: "liwei",
+    name: "Li Wei",
+    age: 61,
+    location: "Kuala Lumpur, MY",
+    occupation: "Heritage Architect & Nanyang Coffee Roaster",
+    relationshipGoal: "Companion for Travel & Sincere Chats",
+    chapterTheme: "Old Shophouses & Roasted Arabica",
+    interests: ["Architecture Sketching", "Afternoon Tea", "Tai Chi", "Cozy Bookstores", "Museum Strolls"],
+    values: ["Cultural preservation", "Integrity", "Gentle patience", "Sincere friendship"],
+    bio: "I spent my career restoring pre-war shophouses across Malaysia. Now, I roast artisan Nanyang Liberica beans, sketch tropical greenery, and enjoy quiet mornings with a good book. Looking for a warm-hearted companion to travel regionally, share street food discoveries, and appreciate life's peaceful moments.",
+    avatarEmoji: "☕",
+    avatarColor: "from-amber-100 to-amber-250 text-amber-950",
+    height: 68, // 5'8"
+    weight: 154,
+    gender: "Male",
+    latitude: 3.1390,
+    longitude: 101.6869
+  },
+  {
+    id: "ananya",
+    name: "Ananya",
+    age: 57,
+    location: "Bangkok, TH",
+    occupation: "Traditional Silk Artisan & Botanical Cook",
+    relationshipGoal: "Companionship & Shared Outings",
+    chapterTheme: "River Morning Mists & Woven Silks",
+    interests: ["Organic Gardening", "Watercolor Painting", "Gourmet Dessert Baking", "Yoga & Stretching", "Farmers' Markets"],
+    values: ["Kindness", "Creativity", "Mindful living", "Joyful laughter"],
+    bio: "Weaving Thai silk by hand taught me to appreciate the beauty of each single thread coming together. I love cooking fragrant herb-infused dishes for close friends, painting lotus ponds at dawn, and walking through floral markets. Seeking a sincere, kind partner for genuine smiles and shared weekend adventures.",
+    avatarEmoji: "🌺",
+    avatarColor: "from-rose-100 to-orange-100 text-rose-950",
+    height: 63, // 5'3"
+    weight: 121,
+    gender: "Female",
+    latitude: 13.7563,
+    longitude: 100.5018
   }
 ];
 

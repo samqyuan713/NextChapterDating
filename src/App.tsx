@@ -50,7 +50,8 @@ import {
   Check,
   LocateFixed,
   Radio,
-  Navigation
+  Navigation,
+  ChevronDown
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
@@ -74,6 +75,8 @@ import {
   formatDistance, 
   reverseGeocodeCity, 
   POPULAR_CITY_PRESETS,
+  getPresetsForLocation,
+  detectWorldRegion,
   GeoCoordinates 
 } from "./lib/locationService";
 import { INITIAL_MATCH_PROFILES, augmentProfilesWithDistance } from "./data/mockProfiles";
@@ -247,6 +250,12 @@ export default function App() {
     city: "Singapore",
     source: "preset"
   });
+
+  // Dynamically compute prioritized city presets based on current GPS location
+  const locationPresetData = useMemo(() => {
+    return getPresetsForLocation(userLocation?.latitude, userLocation?.longitude);
+  }, [userLocation?.latitude, userLocation?.longitude]);
+
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationStatus, setLocationStatus] = useState<string>("");
   const [nearbyRadiusMiles, setNearbyRadiusMiles] = useState<number>(50);
@@ -2218,7 +2227,7 @@ export default function App() {
           <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full max-w-full min-w-0">
             {/* Form Column */}
             <div className="lg:col-span-2 space-y-6 min-w-0">
-              <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm">
+              <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm min-w-0 overflow-hidden">
                 <div className="flex items-center gap-3 border-b border-amber-50 pb-4 mb-6">
                   <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
                     <PenSquare className="w-5 h-5" />
@@ -2278,30 +2287,99 @@ export default function App() {
                       type="text"
                       value={userProfile.location}
                       onChange={(e) => setUserProfile({ ...userProfile, location: e.target.value })}
-                      placeholder="e.g. Singapore, Sausalito, CA"
-                      className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
+                      placeholder="e.g. Singapore, Kuala Lumpur, Sausalito"
+                      className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     />
-                    <div className="flex items-center justify-between flex-wrap gap-2 text-[10px] text-amber-800">
-                      <div className="flex items-center gap-1 font-semibold">
-                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span>
-                          {userLocation ? `Coordinates: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°` : "No GPS locked"}
-                        </span>
+                    <div className="space-y-2 pt-1 border-t border-amber-100/70">
+                      {/* GPS Coordinates & Region Badge Row */}
+                      <div className="flex items-center justify-between text-[11px] text-amber-850 font-medium">
+                        <div className="flex items-center gap-1.5 truncate min-w-0">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">
+                            {userLocation ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°` : "No GPS locked"}
+                          </span>
+                          {userLocation?.city && (
+                            <span className="truncate text-amber-950 font-semibold hidden xs:inline">({userLocation.city})</span>
+                          )}
+                        </div>
+                        {userLocation && (
+                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 text-[10px] font-bold border border-emerald-300/60">
+                            {locationPresetData.regionShortBadge}
+                          </span>
+                        )}
                       </div>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) handleSelectPresetCity(e.target.value);
-                        }}
-                        className="bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5 text-[10px] font-medium text-amber-900 focus:outline-none"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>Or pick preset region...</option>
-                        {POPULAR_CITY_PRESETS.map((preset) => (
-                          <option key={preset.name} value={preset.name}>
-                            📍 {preset.label}
+
+                      {/* Quick-Select Regional City Pills (Finger-friendly for mobile) */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                            <span>📍</span>
+                            <span>Quick Regional Cities</span>
+                            <span className="text-emerald-700 font-normal">({locationPresetData.regionShortBadge})</span>
+                          </span>
+                          <span className="text-[9px] text-amber-700 font-medium">Tap to select</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 max-w-full">
+                          {locationPresetData.regionalPresets.slice(0, 8).map((preset) => {
+                            const isActive = 
+                              userLocation?.city === preset.name || 
+                              userProfile.location.toLowerCase().includes(preset.name.toLowerCase()) ||
+                              preset.name.toLowerCase().includes(userProfile.location.toLowerCase());
+                            return (
+                              <button
+                                key={preset.name}
+                                type="button"
+                                onClick={() => handleSelectPresetCity(preset.name)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95 ${
+                                  isActive
+                                    ? "bg-amber-900 text-white font-bold shadow-xs ring-1 ring-amber-950"
+                                    : "bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 active:bg-amber-200"
+                                }`}
+                              >
+                                {preset.flag && <span>{preset.flag}</span>}
+                                <span>{preset.shortName || preset.name}</span>
+                                {isActive && <Check className="w-3 h-3 ml-0.5 text-amber-200" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Full World Cities Dropdown - Strictly Constrained with appearance-none */}
+                      <div className="relative w-full max-w-full min-w-0 overflow-hidden pt-1">
+                        <select
+                          id="profile-preset-region"
+                          aria-label="Pick preset region"
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) handleSelectPresetCity(e.target.value);
+                          }}
+                          className="w-full bg-amber-50/70 hover:bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 pr-8 text-xs font-medium text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 appearance-none truncate cursor-pointer shadow-2xs block"
+                        >
+                          <option value="" disabled>
+                            🌐 All Preset Cities ({locationPresetData.regionLabel})...
                           </option>
-                        ))}
-                      </select>
+                          <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
+                            {locationPresetData.regionalPresets.map((preset) => (
+                              <option key={preset.name} value={preset.name}>
+                                {preset.flag ? `${preset.flag} ` : ""}{preset.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                          {locationPresetData.otherPresets.length > 0 && (
+                            <optgroup label="🌐 Other World Regions">
+                              {locationPresetData.otherPresets.map((preset) => (
+                                <option key={preset.name} value={preset.name}>
+                                  {preset.flag ? `${preset.flag} ` : ""}{preset.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 top-1 flex items-center px-2.5 text-amber-700">
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
                     </div>
                     {locationStatus && (
                       <p className="text-[10px] text-emerald-700 font-medium italic">
@@ -3103,14 +3181,25 @@ export default function App() {
                         onChange={(e) => {
                           if (e.target.value) handleSelectPresetCity(e.target.value);
                         }}
-                        className="bg-amber-50 border border-amber-200 rounded-xl px-2 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer flex-1 sm:flex-initial max-w-[150px] sm:max-w-none truncate"
+                        className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer flex-1 sm:flex-initial max-w-[155px] sm:max-w-[200px] truncate"
                       >
-                        <option value="" disabled>City Presets</option>
-                        {POPULAR_CITY_PRESETS.map((preset) => (
-                          <option key={preset.name} value={preset.name}>
-                            📍 {preset.label}
-                          </option>
-                        ))}
+                        <option value="" disabled>Presets ({locationPresetData.regionShortBadge})</option>
+                        <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
+                          {locationPresetData.regionalPresets.map((preset) => (
+                            <option key={preset.name} value={preset.name}>
+                              {preset.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {locationPresetData.otherPresets.length > 0 && (
+                          <optgroup label="🌐 Other World Regions">
+                            {locationPresetData.otherPresets.map((preset) => (
+                              <option key={preset.name} value={preset.name}>
+                                {preset.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                   </div>
