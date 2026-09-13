@@ -527,58 +527,34 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
               {onSelectPresetCity && (() => {
                 const presetsData = getPresetsForLocation(userLocation?.latitude, userLocation?.longitude);
                 return (
-                  <div className="space-y-2 pt-1">
-                    {/* Quick Regional Pills on Mobile/Drawer */}
-                    <div className="flex flex-wrap gap-1 max-w-full">
-                      {presetsData.regionalPresets.slice(0, 6).map((preset) => {
-                        const isSelected = userLocation?.city === preset.name;
-                        return (
-                          <button
-                            key={preset.name}
-                            type="button"
-                            onClick={() => onSelectPresetCity(preset.name)}
-                            className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95 ${
-                              isSelected
-                                ? "bg-emerald-800 text-white font-bold shadow-xs"
-                                : "bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-200/80"
-                            }`}
-                          >
-                            {preset.flag && <span>{preset.flag}</span>}
-                            <span>{preset.shortName || preset.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="relative w-full max-w-full min-w-0 overflow-hidden">
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) onSelectPresetCity(e.target.value);
-                        }}
-                        className="w-full bg-white border border-emerald-200/80 rounded-xl px-2.5 py-1.5 pr-7 text-amber-950 text-[11px] font-medium focus:outline-none cursor-pointer truncate appearance-none block"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>🌐 More preset cities...</option>
-                        <optgroup label={`📍 ${presetsData.regionLabel}`}>
-                          {presetsData.regionalPresets.map((preset) => (
+                  <div className="relative w-full max-w-full min-w-0 overflow-hidden pt-0.5">
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) onSelectPresetCity(e.target.value);
+                      }}
+                      className="w-full bg-white border border-emerald-200/80 rounded-xl px-2.5 py-1.5 pr-7 text-amber-950 text-[11px] font-medium focus:outline-none cursor-pointer truncate appearance-none block"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>📍 Pick preset region...</option>
+                      <optgroup label={`📍 ${presetsData.regionLabel}`}>
+                        {presetsData.regionalPresets.map((preset) => (
+                          <option key={preset.name} value={preset.name}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {presetsData.otherPresets.length > 0 && (
+                        <optgroup label="🌐 Other World Regions">
+                          {presetsData.otherPresets.map((preset) => (
                             <option key={preset.name} value={preset.name}>
-                              {preset.flag ? `${preset.flag} ` : ""}{preset.label}
+                              {preset.label}
                             </option>
                           ))}
                         </optgroup>
-                        {presetsData.otherPresets.length > 0 && (
-                          <optgroup label="🌐 Other World Regions">
-                            {presetsData.otherPresets.map((preset) => (
-                              <option key={preset.name} value={preset.name}>
-                                {preset.flag ? `${preset.flag} ` : ""}{preset.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-emerald-700">
-                        <ChevronDown className="w-3 h-3" />
-                      </div>
+                      )}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 top-0.5 flex items-center px-2 text-emerald-700">
+                      <ChevronDown className="w-3.5 h-3.5" />
                     </div>
                   </div>
                 );

@@ -2290,94 +2290,54 @@ export default function App() {
                       placeholder="e.g. Singapore, Kuala Lumpur, Sausalito"
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     />
-                    <div className="space-y-2 pt-1 border-t border-amber-100/70">
-                      {/* GPS Coordinates & Region Badge Row */}
-                      <div className="flex items-center justify-between text-[11px] text-amber-850 font-medium">
-                        <div className="flex items-center gap-1.5 truncate min-w-0">
-                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="truncate">
-                            {userLocation ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°` : "No GPS locked"}
-                          </span>
-                          {userLocation?.city && (
-                            <span className="truncate text-amber-950 font-semibold hidden xs:inline">({userLocation.city})</span>
-                          )}
-                        </div>
+                    <div className="pt-2 border-t border-amber-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-800">
+                      <div className="flex items-center gap-1.5 font-medium truncate min-w-0">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">
+                          {userLocation ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}°` : "No GPS locked"}
+                        </span>
                         {userLocation && (
-                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 text-[10px] font-bold border border-emerald-300/60">
+                          <span className="shrink-0 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
                             {locationPresetData.regionShortBadge}
                           </span>
                         )}
                       </div>
 
-                      {/* Quick-Select Regional City Pills (Finger-friendly for mobile) */}
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
-                            <span>📍</span>
-                            <span>Quick Regional Cities</span>
-                            <span className="text-emerald-700 font-normal">({locationPresetData.regionShortBadge})</span>
-                          </span>
-                          <span className="text-[9px] text-amber-700 font-medium">Tap to select</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 max-w-full">
-                          {locationPresetData.regionalPresets.slice(0, 8).map((preset) => {
-                            const isActive = 
-                              userLocation?.city === preset.name || 
-                              userProfile.location.toLowerCase().includes(preset.name.toLowerCase()) ||
-                              preset.name.toLowerCase().includes(userProfile.location.toLowerCase());
-                            return (
-                              <button
-                                key={preset.name}
-                                type="button"
-                                onClick={() => handleSelectPresetCity(preset.name)}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer select-none active:scale-95 ${
-                                  isActive
-                                    ? "bg-amber-900 text-white font-bold shadow-xs ring-1 ring-amber-950"
-                                    : "bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 active:bg-amber-200"
-                                }`}
-                              >
-                                {preset.flag && <span>{preset.flag}</span>}
-                                <span>{preset.shortName || preset.name}</span>
-                                {isActive && <Check className="w-3 h-3 ml-0.5 text-amber-200" />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Full World Cities Dropdown - Strictly Constrained with appearance-none */}
-                      <div className="relative w-full max-w-full min-w-0 overflow-hidden pt-1">
-                        <select
-                          id="profile-preset-region"
-                          aria-label="Pick preset region"
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value) handleSelectPresetCity(e.target.value);
-                          }}
-                          className="w-full bg-amber-50/70 hover:bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 pr-8 text-xs font-medium text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 appearance-none truncate cursor-pointer shadow-2xs block"
-                        >
-                          <option value="" disabled>
-                            🌐 All Preset Cities ({locationPresetData.regionLabel})...
-                          </option>
-                          <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
-                            {locationPresetData.regionalPresets.map((preset) => (
-                              <option key={preset.name} value={preset.name}>
-                                {preset.flag ? `${preset.flag} ` : ""}{preset.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                          {locationPresetData.otherPresets.length > 0 && (
-                            <optgroup label="🌐 Other World Regions">
-                              {locationPresetData.otherPresets.map((preset) => (
+                      {/* Dropdown list - constrained width on mobile not too wide */}
+                      <div className="w-full sm:w-auto min-w-0 max-w-full sm:max-w-[210px]">
+                        <div className="relative w-full min-w-0 max-w-full">
+                          <select
+                            id="profile-preset-region"
+                            aria-label="Pick preset region"
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) handleSelectPresetCity(e.target.value);
+                            }}
+                            className="w-full sm:w-48 bg-amber-50 border border-amber-200 rounded-lg pl-2.5 pr-7 py-1 text-[11px] font-medium text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 truncate cursor-pointer shadow-2xs appearance-none block"
+                          >
+                            <option value="" disabled>
+                              📍 Presets ({locationPresetData.regionShortBadge})...
+                            </option>
+                            <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
+                              {locationPresetData.regionalPresets.map((preset) => (
                                 <option key={preset.name} value={preset.name}>
                                   {preset.flag ? `${preset.flag} ` : ""}{preset.label}
                                 </option>
                               ))}
                             </optgroup>
-                          )}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 top-1 flex items-center px-2.5 text-amber-700">
-                          <ChevronDown className="w-3.5 h-3.5" />
+                            {locationPresetData.otherPresets.length > 0 && (
+                              <optgroup label="🌐 Other World Regions">
+                                {locationPresetData.otherPresets.map((preset) => (
+                                  <option key={preset.name} value={preset.name}>
+                                    {preset.flag ? `${preset.flag} ` : ""}{preset.label}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-amber-700">
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </div>
                         </div>
                       </div>
                     </div>
