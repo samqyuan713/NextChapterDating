@@ -52,6 +52,25 @@ function getGeminiClient(): GoogleGenAI | null {
 // Prebaked high-fidelity mature match profiles for "Next Chapter Dating" (used as fallback and initial seeding reference)
 const MATCH_PROFILES = [
   {
+    id: "meiling",
+    name: "Mei-Ling",
+    age: 58,
+    location: "Singapore",
+    occupation: "Retired Pastry Chef & Orchid Botanist",
+    relationshipGoal: "Friendship & Culinary Adventures",
+    chapterTheme: "Sweet Vanilla & Orchid Greenhouse",
+    interests: ["Horticulture", "Gourmet Dessert Baking", "Tai Chi", "Farmers' Markets", "Kayaking"],
+    values: ["Warm hospitality", "Generosity", "Lifelong vitality", "Vibrant colors"],
+    bio: "I spent my life in busy Singapore kitchens, but now my sanctuary is my greenhouse filled with rare orchids. I still bake daily—there's always sourdough or cardamom buns on the counter. Looking for an active, enthusiastic partner to travel, try exotic street foods, and practice peaceful Tai Chi with on sunny mornings.",
+    avatarEmoji: "🌸",
+    avatarColor: "from-pink-100 to-rose-200 text-rose-950",
+    height: 62, // 5'2"
+    weight: 122,
+    gender: "Female",
+    latitude: 1.3521,
+    longitude: 103.8198
+  },
+  {
     id: "arthur",
     name: "Arthur",
     age: 68,
@@ -221,25 +240,6 @@ const MATCH_PROFILES = [
     gender: "Male",
     latitude: 35.0116,
     longitude: 135.7681
-  },
-  {
-    id: "meiling",
-    name: "Mei-Ling",
-    age: 58,
-    location: "Singapore",
-    occupation: "Retired Pastry Chef & Orchid Botanist",
-    relationshipGoal: "Friendship & Culinary Adventures",
-    chapterTheme: "Sweet Vanilla & Orchid Greenhouse",
-    interests: ["Horticulture", "Gourmet Dessert Baking", "Tai Chi", "Farmers' Markets", "Kayaking"],
-    values: ["Warm hospitality", "Generosity", "Lifelong vitality", "Vibrant colors"],
-    bio: "I spent my life in busy Singapore kitchens, but now my sanctuary is my greenhouse filled with rare orchids. I still bake daily—there's always sourdough or cardamom buns on the counter. Looking for an active, enthusiastic partner to travel, try exotic street foods, and practice peaceful Tai Chi with on sunny mornings.",
-    avatarEmoji: "🌸",
-    avatarColor: "from-pink-100 to-rose-200 text-rose-950",
-    height: 62, // 5'2"
-    weight: 122,
-    gender: "Female",
-    latitude: 1.3521,
-    longitude: 103.8198
   },
   {
     id: "sanjay",
@@ -523,6 +523,11 @@ app.get("/api/matches", async (req, res) => {
   try {
     const list = await db.select().from(companions);
     if (list && list.length > 0) {
+      const meilingIdx = list.findIndex(c => c.id === "meiling");
+      if (meilingIdx > 0) {
+        const [meiling] = list.splice(meilingIdx, 1);
+        list.unshift(meiling);
+      }
       return res.json({ status: "success", matches: list });
     }
   } catch (error) {

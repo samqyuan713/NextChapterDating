@@ -235,7 +235,19 @@ export default function App() {
     gpsEnabled?: boolean;
     searchRadiusMiles?: number;
     updatedAt?: string;
-  } | null>(null);
+  }>({
+    name: "Sam",
+    age: 50,
+    location: "Singapore",
+    interests: ["Classical Music", "Museum Strolls", "Cozy Bookstores"],
+    bio: "A thoughtful companion who appreciates quiet morning walks, art galleries, and heartwarming conversation over Earl Grey.",
+    relationshipGoal: "Companionship & Shared Outings",
+    isSubscribed: false,
+    latitude: 1.3521,
+    longitude: 103.8198,
+    gpsEnabled: false,
+    searchRadiusMiles: 50
+  });
 
   // GPS Location & Tinder-style Proximity States
   const [userLocation, setUserLocation] = useState<{
@@ -260,7 +272,7 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState<string>("");
   const [nearbyRadiusMiles, setNearbyRadiusMiles] = useState<number>(50);
   const [onlyShowNearby, setOnlyShowNearby] = useState<boolean>(false);
-  const [sortByDistance, setSortByDistance] = useState<boolean>(false);
+  const [sortByDistance, setSortByDistance] = useState<boolean>(true);
 
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(false);
 
@@ -345,7 +357,15 @@ export default function App() {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem("cached_user_profile");
       if (raw) {
-        try { cachedProfile = JSON.parse(raw); } catch {}
+        try {
+          cachedProfile = JSON.parse(raw);
+          if (cachedProfile && (!cachedProfile.location || cachedProfile.location === "Sausalito, CA" || cachedProfile.location.includes("Sausalito") || cachedProfile.location === "USA")) {
+            cachedProfile.location = "Singapore";
+            cachedProfile.latitude = 1.3521;
+            cachedProfile.longitude = 103.8198;
+            localStorage.setItem("cached_user_profile", JSON.stringify(cachedProfile));
+          }
+        } catch {}
       }
     }
 
@@ -416,15 +436,44 @@ export default function App() {
     }
 
     if (chosenProfile) {
-      setUserProfile(chosenProfile);
-      if (chosenProfile.latitude !== undefined && chosenProfile.longitude !== undefined) {
-        setUserLocation({
-          latitude: chosenProfile.latitude,
-          longitude: chosenProfile.longitude,
-          city: chosenProfile.location || "Current Area",
-          source: chosenProfile.gpsEnabled ? "gps" : "preset"
-        });
+      // Auto-sanitize legacy / stale location (Sausalito, USA, or empty)
+      if (!chosenProfile.location || chosenProfile.location === "Sausalito, CA" || chosenProfile.location.includes("Sausalito") || chosenProfile.location === "USA") {
+        chosenProfile.location = "Singapore";
+        chosenProfile.latitude = 1.3521;
+        chosenProfile.longitude = 103.8198;
       }
+
+      // If coordinates are missing or still pointed to Sausalito coords while location is Singapore:
+      if (chosenProfile.latitude === undefined || chosenProfile.longitude === undefined || 
+          (chosenProfile.latitude === 37.8591 && chosenProfile.longitude === -122.4853 && chosenProfile.location === "Singapore")) {
+        const matched = POPULAR_CITY_PRESETS.find(p => 
+          p.name.toLowerCase() === chosenProfile.location.toLowerCase() ||
+          chosenProfile.location.toLowerCase().includes(p.shortName?.toLowerCase() || "___")
+        );
+        if (matched) {
+          chosenProfile.latitude = matched.latitude;
+          chosenProfile.longitude = matched.longitude;
+        } else {
+          chosenProfile.latitude = 1.3521;
+          chosenProfile.longitude = 103.8198;
+        }
+      }
+
+      setUserProfile(chosenProfile);
+      const resolvedLoc = {
+        latitude: chosenProfile.latitude ?? 1.3521,
+        longitude: chosenProfile.longitude ?? 103.8198,
+        city: chosenProfile.location || "Singapore",
+        source: chosenProfile.gpsEnabled ? ("gps" as const) : ("preset" as const)
+      };
+      setUserLocation(resolvedLoc);
+
+      // Re-sort matches relative to this resolved user location
+      setMatches((prev) => {
+        const next = augmentProfilesWithDistance(prev, resolvedLoc.latitude, resolvedLoc.longitude);
+        return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+      });
+
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem("cached_user_profile", JSON.stringify(chosenProfile)); } catch {}
       }
@@ -473,17 +522,36 @@ export default function App() {
     if (!updated) return { success: false, error: "No profile data provided" };
 
     const nowIso = new Date().toISOString();
+    const nextLocation = updated.location !== undefined ? updated.location : (userProfile?.location || "Singapore");
+    let nextLat = updated.latitude !== undefined ? updated.latitude : userProfile?.latitude;
+    let nextLon = updated.longitude !== undefined ? updated.longitude : userProfile?.longitude;
+
+    if (nextLocation) {
+      const matched = POPULAR_CITY_PRESETS.find(p => 
+        p.name.toLowerCase() === nextLocation.toLowerCase() ||
+        nextLocation.toLowerCase().includes(p.shortName?.toLowerCase() || "___")
+      );
+      if (matched && (!nextLat || !nextLon || (nextLat === 37.8591 && nextLon === -122.4853 && matched.name !== "Sausalito, CA"))) {
+        nextLat = matched.latitude;
+        nextLon = matched.longitude;
+      }
+    }
+    if (!nextLat || !nextLon) {
+      nextLat = 1.3521;
+      nextLon = 103.8198;
+    }
+
     // Build the latest updated profile object
     const nextProfile = {
       name: updated.name !== undefined ? updated.name : (userProfile?.name || ""),
       age: updated.age !== undefined && updated.age !== null && updated.age !== "" ? Number(updated.age) : (userProfile?.age || 50),
-      location: updated.location !== undefined ? updated.location : (userProfile?.location || ""),
+      location: nextLocation,
       interests: Array.isArray(updated.interests) ? updated.interests : (userProfile?.interests || []),
       bio: updated.bio !== undefined ? updated.bio : (userProfile?.bio || ""),
       relationshipGoal: updated.relationshipGoal !== undefined ? updated.relationshipGoal : (userProfile?.relationshipGoal || "Companionship & Shared Outings"),
       isSubscribed: updated.isSubscribed !== undefined ? Boolean(updated.isSubscribed) : Boolean(userProfile?.isSubscribed),
-      latitude: updated.latitude !== undefined ? updated.latitude : userProfile?.latitude,
-      longitude: updated.longitude !== undefined ? updated.longitude : userProfile?.longitude,
+      latitude: nextLat,
+      longitude: nextLon,
       gpsEnabled: updated.gpsEnabled !== undefined ? updated.gpsEnabled : userProfile?.gpsEnabled,
       searchRadiusMiles: updated.searchRadiusMiles !== undefined ? updated.searchRadiusMiles : userProfile?.searchRadiusMiles,
       updatedAt: nowIso
@@ -491,6 +559,17 @@ export default function App() {
 
     // Optimistically update React state
     setUserProfile(nextProfile);
+    setUserLocation({
+      latitude: nextLat,
+      longitude: nextLon,
+      city: nextLocation || "Singapore",
+      source: nextProfile.gpsEnabled ? ("gps" as const) : ("preset" as const)
+    });
+
+    setMatches((prev) => {
+      const next = augmentProfilesWithDistance(prev, nextLat, nextLon);
+      return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+    });
     if (nextProfile.name && nextProfile.name.trim() !== "") {
       setHasOnboarded(true);
     }
@@ -1115,8 +1194,9 @@ export default function App() {
           };
         });
         const augmented = augmentProfilesWithDistance(withCoords, lat, lon);
+        augmented.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
         setMatches(augmented);
-        // Set first companion as default selected
+        // Set first companion (nearest to user's location) as default selected
         if (augmented.length > 0) {
           setSelectedMatch(augmented[0]);
         }
@@ -1125,6 +1205,7 @@ export default function App() {
         const lat = userLocation?.latitude ?? 1.3521;
         const lon = userLocation?.longitude ?? 103.8198;
         const augmented = augmentProfilesWithDistance(INITIAL_MATCH_PROFILES, lat, lon);
+        augmented.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
         setMatches(augmented);
         if (augmented.length > 0) {
           setSelectedMatch(augmented[0]);
@@ -1157,8 +1238,12 @@ export default function App() {
       setUserLocation(newLoc);
       setLocationStatus(`GPS Locked: ${newLoc.city} (±${Math.round(coords.accuracy || 15)}m accuracy)`);
       
-      // Augment existing companion profiles with distance to this new GPS coordinate
-      setMatches((prev) => augmentProfilesWithDistance(prev, coords.latitude, coords.longitude));
+      // Augment existing companion profiles with distance to this new GPS coordinate & sort by proximity
+      setMatches((prev) => {
+        const next = augmentProfilesWithDistance(prev, coords.latitude, coords.longitude);
+        return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+      });
+      setSwipeIndex(0);
 
       // Persist to user profile and Cloud Firestore
       if (userProfile) {
@@ -1192,7 +1277,11 @@ export default function App() {
     };
     setUserLocation(newLoc);
     setLocationStatus(`Switched reference location to: ${preset.label}`);
-    setMatches((prev) => augmentProfilesWithDistance(prev, preset.latitude, preset.longitude));
+    setMatches((prev) => {
+      const next = augmentProfilesWithDistance(prev, preset.latitude, preset.longitude);
+      return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+    });
+    setSwipeIndex(0);
 
     if (userProfile) {
       const updated = {
@@ -1837,7 +1926,7 @@ export default function App() {
                         type="text"
                         value={userProfile.location}
                         onChange={(e) => setUserProfile({ ...userProfile, location: e.target.value })}
-                        placeholder="e.g. Sausalito, CA"
+                        placeholder="e.g. Singapore, Kuala Lumpur, Tokyo"
                         className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                       />
                     </div>
@@ -1930,7 +2019,9 @@ export default function App() {
                     const defaultProfile = {
                       name: fbUser?.displayName || "Guest Tester",
                       age: 64,
-                      location: "Evanston, IL",
+                      location: "Singapore",
+                      latitude: 1.3521,
+                      longitude: 103.8198,
                       interests: ["Classical Music", "Museum Strolls", "Cozy Bookstores"],
                       bio: "A retired architect who cherishes slow walks alongside lakeside docks, classical string melodies, and good conversational exchange over coffee. Seeking a genuine soul to explore matching artistic and natural paths in our life's next beautiful chapters.",
                       relationshipGoal: "Companionship & Shared Outings"
@@ -2286,8 +2377,27 @@ export default function App() {
                     <input
                       type="text"
                       value={userProfile.location}
-                      onChange={(e) => setUserProfile({ ...userProfile, location: e.target.value })}
-                      placeholder="e.g. Singapore, Kuala Lumpur, Sausalito"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUserProfile({ ...userProfile, location: val });
+                        const matched = POPULAR_CITY_PRESETS.find(p => 
+                          p.name.toLowerCase() === val.toLowerCase() ||
+                          val.toLowerCase().includes(p.shortName?.toLowerCase() || "___")
+                        );
+                        if (matched) {
+                          setUserLocation({
+                            latitude: matched.latitude,
+                            longitude: matched.longitude,
+                            city: matched.name,
+                            source: "preset"
+                          });
+                          setMatches((prev) => {
+                            const next = augmentProfilesWithDistance(prev, matched.latitude, matched.longitude);
+                            return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+                          });
+                        }
+                      }}
+                      placeholder="e.g. Singapore, Kuala Lumpur, Tokyo"
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     />
                     <div className="pt-2 border-t border-amber-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-amber-800">
@@ -2309,7 +2419,7 @@ export default function App() {
                           <select
                             id="profile-preset-region"
                             aria-label="Pick preset region"
-                            value=""
+                            value={userLocation?.city || "Singapore"}
                             onChange={(e) => {
                               if (e.target.value) handleSelectPresetCity(e.target.value);
                             }}
@@ -2924,7 +3034,7 @@ export default function App() {
                   
                   <div className="flex items-center gap-1 text-xs text-amber-700/90 mt-1 font-medium">
                     <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{userProfile.location || "USA"}</span>
+                    <span>{userProfile.location || "Singapore"}</span>
                   </div>
 
                   <span className="mt-3 text-xs px-3 py-1 bg-white/80 rounded-full border border-amber-200/50 text-amber-800 font-bold tracking-wide">
@@ -3137,7 +3247,7 @@ export default function App() {
                       </button>
 
                       <select
-                        value={userLocation?.city || ""}
+                        value={userLocation?.city || "Singapore"}
                         onChange={(e) => {
                           if (e.target.value) handleSelectPresetCity(e.target.value);
                         }}
@@ -3147,7 +3257,7 @@ export default function App() {
                         <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
                           {locationPresetData.regionalPresets.map((preset) => (
                             <option key={preset.name} value={preset.name}>
-                              {preset.label}
+                              {preset.flag ? `${preset.flag} ` : ""}{preset.label}
                             </option>
                           ))}
                         </optgroup>
@@ -3155,7 +3265,7 @@ export default function App() {
                           <optgroup label="🌐 Other World Regions">
                             {locationPresetData.otherPresets.map((preset) => (
                               <option key={preset.name} value={preset.name}>
-                                {preset.label}
+                                {preset.flag ? `${preset.flag} ` : ""}{preset.label}
                               </option>
                             ))}
                           </optgroup>

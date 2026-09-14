@@ -529,17 +529,17 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                 return (
                   <div className="relative w-full max-w-full min-w-0 overflow-hidden pt-0.5">
                     <select
+                      value={userLocation?.city || "Singapore"}
                       onChange={(e) => {
                         if (e.target.value) onSelectPresetCity(e.target.value);
                       }}
                       className="w-full bg-white border border-emerald-200/80 rounded-xl px-2.5 py-1.5 pr-7 text-amber-950 text-[11px] font-medium focus:outline-none cursor-pointer truncate appearance-none block"
-                      defaultValue=""
                     >
-                      <option value="" disabled>📍 Pick preset region...</option>
+                      <option value="" disabled>📍 Presets ({presetsData.regionShortBadge})...</option>
                       <optgroup label={`📍 ${presetsData.regionLabel}`}>
                         {presetsData.regionalPresets.map((preset) => (
                           <option key={preset.name} value={preset.name}>
-                            {preset.label}
+                            {preset.flag ? `${preset.flag} ` : ""}{preset.label}
                           </option>
                         ))}
                       </optgroup>
@@ -547,7 +547,7 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                         <optgroup label="🌐 Other World Regions">
                           {presetsData.otherPresets.map((preset) => (
                             <option key={preset.name} value={preset.name}>
-                              {preset.label}
+                              {preset.flag ? `${preset.flag} ` : ""}{preset.label}
                             </option>
                           ))}
                         </optgroup>
