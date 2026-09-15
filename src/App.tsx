@@ -79,7 +79,7 @@ import {
   detectWorldRegion,
   GeoCoordinates 
 } from "./lib/locationService";
-import { INITIAL_MATCH_PROFILES, augmentProfilesWithDistance } from "./data/mockProfiles";
+import { INITIAL_MATCH_PROFILES, augmentProfilesWithDistance, filterCompanions } from "./data/mockProfiles";
 
 // Standard interests user can select
 const INTERESTS_PRESETS = [
@@ -719,28 +719,110 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Partner Search States
+  // Partner Search States & Discovery Compass
   const [searchGender, setSearchGender] = useState<string>("All");
   const [searchAgeMin, setSearchAgeMin] = useState<number>(35);
   const [searchAgeMax, setSearchAgeMax] = useState<number>(85);
-  const [searchHeightMin, setSearchHeightMin] = useState<number>(60); // 5'0"
+  const [searchHeightMin, setSearchHeightMin] = useState<number>(54); // 4'6"
   const [searchHeightMax, setSearchHeightMax] = useState<number>(78); // 6'6"
   const [searchWeightMin, setSearchWeightMin] = useState<number>(100);
   const [searchWeightMax, setSearchWeightMax] = useState<number>(240);
   const [searchSelectedHobbies, setSearchSelectedHobbies] = useState<string[]>([]);
   const [searchKeyword, setSearchKeyword] = useState<string>("");
+  const [compassFocus, setCompassFocus] = useState<"all" | "intellectual" | "sports" | "cozy" | "romance">("all");
 
-  // Proximity-filtered and distance-sorted deck for Tinder-like discovery
+  // Proximity-filtered and Compass-filtered deck for Tinder-like discovery
   const deckCompanions = useMemo(() => {
-    let list = [...matches];
-    if (onlyShowNearby && nearbyRadiusMiles > 0) {
-      list = list.filter((m) => m.distanceMiles !== undefined && m.distanceMiles <= nearbyRadiusMiles);
-    }
-    if (sortByDistance) {
-      list.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
-    }
-    return list;
-  }, [matches, onlyShowNearby, nearbyRadiusMiles, sortByDistance]);
+    return filterCompanions(matches, {
+      searchGender,
+      searchAgeMin,
+      searchAgeMax,
+      searchHeightMin,
+      searchHeightMax,
+      searchWeightMin,
+      searchWeightMax,
+      searchSelectedHobbies,
+      searchKeyword,
+      onlyShowNearby,
+      nearbyRadiusMiles,
+      sortByDistance
+    });
+  }, [
+    matches,
+    searchGender,
+    searchAgeMin,
+    searchAgeMax,
+    searchHeightMin,
+    searchHeightMax,
+    searchWeightMin,
+    searchWeightMax,
+    searchSelectedHobbies,
+    searchKeyword,
+    onlyShowNearby,
+    nearbyRadiusMiles,
+    sortByDistance
+  ]);
+
+  // Keep swipe deck index in-bounds and restart whenever filter parameters update
+  useEffect(() => {
+    setSwipeIndex(0);
+  }, [
+    searchGender,
+    searchAgeMin,
+    searchAgeMax,
+    searchHeightMin,
+    searchHeightMax,
+    searchWeightMin,
+    searchWeightMax,
+    searchSelectedHobbies,
+    searchKeyword,
+    compassFocus,
+    onlyShowNearby,
+    nearbyRadiusMiles,
+    sortByDistance
+  ]);
+
+  const hasActiveCompassFilters = useMemo(() => {
+    return (
+      (searchGender && searchGender !== "All") ||
+      (searchKeyword && searchKeyword.trim().length > 0) ||
+      searchAgeMin > 35 ||
+      searchAgeMax < 85 ||
+      searchHeightMin > 54 ||
+      searchHeightMax < 78 ||
+      searchWeightMin > 100 ||
+      searchWeightMax < 240 ||
+      searchSelectedHobbies.length > 0 ||
+      compassFocus !== "all"
+    );
+  }, [
+    searchGender,
+    searchKeyword,
+    searchAgeMin,
+    searchAgeMax,
+    searchHeightMin,
+    searchHeightMax,
+    searchWeightMin,
+    searchWeightMax,
+    searchSelectedHobbies,
+    compassFocus
+  ]);
+
+  const handleResetAllFilters = () => {
+    setSearchGender("All");
+    setSearchAgeMin(35);
+    setSearchAgeMax(85);
+    setSearchHeightMin(54);
+    setSearchHeightMax(78);
+    setSearchWeightMin(100);
+    setSearchWeightMax(240);
+    setSearchSelectedHobbies([]);
+    setSearchKeyword("");
+    setCompassFocus("all");
+    setOnlyShowNearby(false);
+    setSwipeIndex(0);
+    setSkippedSwipeIds([]);
+  };
 
   // Premium Subscription & Save states
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -838,9 +920,6 @@ export default function App() {
   ]);
   const [newPostText, setNewPostText] = useState<string>("");
   const [isCommentReplying, setIsCommentReplying] = useState<boolean>(false);
-
-  // 2. Discovery Compass States
-  const [compassFocus, setCompassFocus] = useState<"all" | "intellectual" | "sports" | "cozy" | "romance">("all");
 
   // 3. Storyroom States
   const [storyAuthorId, setStoryAuthorId] = useState<string>("arthur");
@@ -3200,6 +3279,12 @@ export default function App() {
                 sortByDistance={sortByDistance}
                 setSortByDistance={setSortByDistance}
                 onSelectPresetCity={handleSelectPresetCity}
+                userProfile={userProfile}
+                onExploreInDeck={() => {
+                  setExploreSubTab("cards");
+                  setSwipeIndex(0);
+                }}
+                onResetAllFilters={handleResetAllFilters}
               />
             ) : (
               <div className="w-full max-w-full min-w-0 space-y-4">
@@ -3330,6 +3415,62 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Active Compass Filters Banner */}
+                {hasActiveCompassFilters && (
+                  <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span className="inline-flex items-center gap-1 font-bold text-amber-950 shrink-0">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Compass Filters:</span>
+                      </span>
+                      {searchGender !== "All" && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
+                          {searchGender}
+                        </span>
+                      )}
+                      {(searchAgeMin > 35 || searchAgeMax < 85) && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
+                          Age {searchAgeMin}–{searchAgeMax}
+                        </span>
+                      )}
+                      {compassFocus !== "all" && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200">
+                          🧭 {compassFocus}
+                        </span>
+                      )}
+                      {searchSelectedHobbies.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
+                          {searchSelectedHobbies.length} {searchSelectedHobbies.length === 1 ? "hobby" : "hobbies"}
+                        </span>
+                      )}
+                      {searchKeyword.trim() && (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 max-w-[120px] truncate">
+                          "{searchKeyword}"
+                        </span>
+                      )}
+                      <span className="text-[11px] text-amber-800 font-bold ml-1">
+                        ({deckCompanions.length} of {matches.length} cards)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setExploreSubTab("compass")}
+                        className="px-2.5 py-1 text-[11px] font-bold text-amber-900 hover:text-amber-950 hover:bg-amber-100/70 rounded-lg transition-all cursor-pointer"
+                      >
+                        Adjust Filters ⚙️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetAllFilters}
+                        className="px-2.5 py-1 text-[11px] font-bold bg-white text-amber-900 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all cursor-pointer shadow-2xs"
+                      >
+                        Reset Filters ✕
+                      </button>
+                    </div>
+                  </div>
+                )}
+
             {loadingMatches ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-amber-700" />
@@ -3340,31 +3481,43 @@ export default function App() {
                 <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto border border-amber-200">
                   <LocateFixed className="w-7 h-7 text-amber-700" />
                 </div>
-                <h3 className="font-serif font-bold text-lg text-amber-950">No Companions Found Within {nearbyRadiusMiles} Miles</h3>
+                <h3 className="font-serif font-bold text-lg text-amber-950">
+                  {onlyShowNearby
+                    ? `No Companions Found Within ${nearbyRadiusMiles} Miles`
+                    : "No Companions Match Your Active Compass Criteria"}
+                </h3>
                 <p className="text-xs text-amber-700 max-w-sm mx-auto">
-                  Try expanding your search radius to 100 miles, selecting a popular preset region, or viewing all companions anywhere.
+                  {onlyShowNearby
+                    ? "Try expanding your search radius, selecting a different region, or resetting compass filters."
+                    : "Try expanding your age, gender, or recreation criteria in Discovery Compass to find more companions."}
                 </p>
-                <div className="flex justify-center gap-2 pt-2">
+                <div className="flex flex-wrap justify-center gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setNearbyRadiusMiles(100);
-                      setOnlyShowNearby(true);
-                      setSwipeIndex(0);
-                    }}
-                    className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all cursor-pointer shadow-xs"
+                    onClick={handleResetAllFilters}
+                    className="px-4 py-2 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer shadow-xs"
                   >
-                    Expand to &lt; 100 mi
+                    Reset All Filters ✕
                   </button>
+                  {onlyShowNearby && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNearbyRadiusMiles(100);
+                        setOnlyShowNearby(true);
+                        setSwipeIndex(0);
+                      }}
+                      className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all cursor-pointer shadow-xs"
+                    >
+                      Expand to &lt; 100 mi
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => {
-                      setOnlyShowNearby(false);
-                      setSwipeIndex(0);
-                    }}
+                    onClick={() => setExploreSubTab("compass")}
                     className="px-4 py-2 bg-amber-100 text-amber-950 rounded-xl text-xs font-bold hover:bg-amber-200 transition-all cursor-pointer"
                   >
-                    View All Anywhere
+                    Adjust in Compass 🧭
                   </button>
                 </div>
               </div>

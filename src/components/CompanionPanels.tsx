@@ -1,13 +1,14 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import { apiFetch, safeJsonFetch } from "../lib/api";
 import { 
   Compass, Search, MessageSquare, Coffee, BookOpen, Heart, MapPin, 
   Sparkles, Ruler, Scale, ChevronRight, Send, Loader2, CheckCircle2, 
   SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
-  Navigation, Radio, LocateFixed, ChevronDown
+  Navigation, Radio, LocateFixed, ChevronDown, Target
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
+import { filterCompanions } from "../data/mockProfiles";
 
 // Constant presets matching App.tsx
 const INTERESTS_PRESETS = [
@@ -87,6 +88,16 @@ interface DiscoveryCompassProps {
   sortByDistance?: boolean;
   setSortByDistance?: (val: boolean) => void;
   onSelectPresetCity?: (city: string) => void;
+  userProfile?: {
+    name?: string;
+    age?: number;
+    location?: string;
+    interests?: string[];
+    bio?: string;
+    relationshipGoal?: string;
+  } | null;
+  onExploreInDeck?: () => void;
+  onResetAllFilters?: () => void;
 }
 
 export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
@@ -124,77 +135,72 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
   setOnlyShowNearby,
   sortByDistance = false,
   setSortByDistance,
-  onSelectPresetCity
+  onSelectPresetCity,
+  userProfile,
+  onExploreInDeck,
+  onResetAllFilters
 }) => {
-  const filteredCompanions = matches.filter((companion) => {
-    if (searchGender && searchGender !== "All" && companion.gender !== searchGender) return false;
-
-    // Proximity / Nearby filter (Tinder-style)
-    if (onlyShowNearby && nearbyRadiusMiles && nearbyRadiusMiles > 0) {
-      if (companion.distanceMiles === undefined || companion.distanceMiles > nearbyRadiusMiles) {
-        return false;
-      }
-    }
-
-    if (searchKeyword && searchKeyword.trim()) {
-      const keyword = searchKeyword.toLowerCase().trim();
-      const nameMatch = companion.name?.toLowerCase().includes(keyword) || false;
-      const bioMatch = companion.bio?.toLowerCase().includes(keyword) || false;
-      const occMatch = companion.occupation?.toLowerCase().includes(keyword) || false;
-      const locMatch = companion.location?.toLowerCase().includes(keyword) || false;
-      const themeMatch = companion.chapterTheme?.toLowerCase().includes(keyword) || false;
-      const goalMatch = companion.relationshipGoal?.toLowerCase().includes(keyword) || false;
-      const interestMatch = companion.interests?.some((i) => i.toLowerCase().includes(keyword)) || false;
-      const valueMatch = companion.values?.some((v) => v.toLowerCase().includes(keyword)) || false;
-
-      if (!nameMatch && !bioMatch && !occMatch && !locMatch && !themeMatch && !goalMatch && !interestMatch && !valueMatch) {
-        return false;
-      }
-    }
-
-    if (companion.age !== undefined && (companion.age < searchAgeMin || companion.age > searchAgeMax)) return false;
-
-    if (companion.height && companion.height > 0 && (companion.height < searchHeightMin || companion.height > searchHeightMax)) return false;
-
-    if (companion.weight && companion.weight > 0 && (companion.weight < searchWeightMin || companion.weight > searchWeightMax)) return false;
-
-    if (searchSelectedHobbies && searchSelectedHobbies.length > 0) {
-      const matchesAny = searchSelectedHobbies.some((selectedHobby) => {
-        const normSelected = selectedHobby.toLowerCase().trim();
-        const tokens = normSelected.split(/&|,|\/|\s+and\s+/).map((t) => t.trim()).filter((t) => t.length >= 3);
-
-        return companion.interests?.some((userInterest) => {
-          const normInterest = userInterest.toLowerCase().trim();
-          if (normInterest.includes(normSelected) || normSelected.includes(normInterest)) return true;
-          return tokens.some((token) => normInterest.includes(token) || token.includes(normInterest));
-        });
-      });
-      if (!matchesAny) return false;
-    }
-
-    return true;
-  });
-
-  const displayCompanions = [...filteredCompanions].sort((a, b) => {
-    if (sortByDistance) {
-      const distA = a.distanceMiles !== undefined ? a.distanceMiles : 999999;
-      const distB = b.distanceMiles !== undefined ? b.distanceMiles : 999999;
-      return distA - distB;
-    }
-    return 0;
-  });
+  const displayCompanions = useMemo(() => {
+    return filterCompanions(matches, {
+      searchGender,
+      searchAgeMin,
+      searchAgeMax,
+      searchHeightMin,
+      searchHeightMax,
+      searchWeightMin,
+      searchWeightMax,
+      searchSelectedHobbies,
+      searchKeyword,
+      onlyShowNearby,
+      nearbyRadiusMiles,
+      sortByDistance
+    });
+  }, [
+    matches,
+    searchGender,
+    searchAgeMin,
+    searchAgeMax,
+    searchHeightMin,
+    searchHeightMax,
+    searchWeightMin,
+    searchWeightMax,
+    searchSelectedHobbies,
+    searchKeyword,
+    onlyShowNearby,
+    nearbyRadiusMiles,
+    sortByDistance
+  ]);
 
   const handleReset = () => {
+    if (onResetAllFilters) {
+      onResetAllFilters();
+    } else {
+      setSearchGender("All");
+      setSearchAgeMin(35);
+      setSearchAgeMax(85);
+      setSearchHeightMin(54);
+      setSearchHeightMax(78);
+      setSearchWeightMin(100);
+      setSearchWeightMax(240);
+      setSearchSelectedHobbies([]);
+      setSearchKeyword("");
+      setCompassFocus("all");
+      if (setOnlyShowNearby) setOnlyShowNearby(false);
+    }
+  };
+
+  const handleAlignWithMyProfile = () => {
+    const age = userProfile?.age || 50;
+    setSearchAgeMin(Math.max(35, age - 10));
+    setSearchAgeMax(Math.min(85, age + 10));
     setSearchGender("All");
-    setSearchAgeMin(35);
-    setSearchAgeMax(85);
-    setSearchHeightMin(54);
-    setSearchHeightMax(78);
-    setSearchWeightMin(100);
-    setSearchWeightMax(240);
-    setSearchSelectedHobbies([]);
+    if (userProfile?.interests && userProfile.interests.length > 0) {
+      setSearchSelectedHobbies(userProfile.interests);
+    }
     setSearchKeyword("");
     setCompassFocus("all");
+    if (setOnlyShowNearby) setOnlyShowNearby(true);
+    if (setNearbyRadiusMiles) setNearbyRadiusMiles(50);
   };
 
   return (
@@ -209,13 +215,36 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
             Filter by physical metrics, recreation interests, or use our visual Alignment Dial to tune in on companion cores.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleReset}
-          className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold border border-amber-200 rounded-xl transition-all text-xs cursor-pointer"
-        >
-          Reset All Filters
-        </button>
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {userProfile && (
+            <button
+              type="button"
+              onClick={handleAlignWithMyProfile}
+              title="Filter companions matching your age range, interests and Singapore proximity"
+              className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 rounded-xl transition-all text-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              <Target className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Align with My Profile 🎯</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleReset}
+            className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold border border-amber-200 rounded-xl transition-all text-xs cursor-pointer"
+          >
+            Reset All Filters
+          </button>
+          {onExploreInDeck && (
+            <button
+              type="button"
+              onClick={onExploreInDeck}
+              className="px-3.5 py-2 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl transition-all text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Companion Cards ({displayCompanions.length}) 📇</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-gradient-to-br from-emerald-50/60 via-amber-50/30 to-orange-50/40 border border-amber-100 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
@@ -633,10 +662,22 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest px-2 flex items-center justify-between">
-          <span>Found {displayCompanions.length} Compatible Match Alignments</span>
-          {sortByDistance && <span className="text-emerald-700 font-bold lowercase">sorted by proximity</span>}
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+          <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-2">
+            <span>Found {displayCompanions.length} Compatible Match Alignments</span>
+            {sortByDistance && <span className="text-emerald-700 font-bold lowercase">sorted by proximity</span>}
+          </h3>
+          {onExploreInDeck && displayCompanions.length > 0 && (
+            <button
+              type="button"
+              onClick={onExploreInDeck}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl transition-all text-xs shadow-xs cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Explore in Cards ({displayCompanions.length}) 📇</span>
+            </button>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {displayCompanions.length === 0 ? (

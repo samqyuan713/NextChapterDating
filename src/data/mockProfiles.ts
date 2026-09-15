@@ -360,3 +360,115 @@ export function augmentProfilesWithDistance(
     return p;
   });
 }
+
+export interface CompanionFilterCriteria {
+  searchGender?: string;
+  searchAgeMin?: number;
+  searchAgeMax?: number;
+  searchHeightMin?: number;
+  searchHeightMax?: number;
+  searchWeightMin?: number;
+  searchWeightMax?: number;
+  searchSelectedHobbies?: string[];
+  searchKeyword?: string;
+  onlyShowNearby?: boolean;
+  nearbyRadiusMiles?: number;
+  sortByDistance?: boolean;
+}
+
+export function filterCompanions(
+  matches: Profile[],
+  criteria: CompanionFilterCriteria
+): Profile[] {
+  const {
+    searchGender,
+    searchAgeMin = 35,
+    searchAgeMax = 85,
+    searchHeightMin = 54,
+    searchHeightMax = 78,
+    searchWeightMin = 100,
+    searchWeightMax = 240,
+    searchSelectedHobbies = [],
+    searchKeyword = "",
+    onlyShowNearby = false,
+    nearbyRadiusMiles = 50,
+    sortByDistance = false
+  } = criteria;
+
+  let filtered = matches.filter((companion) => {
+    // 1. Gender Filter
+    if (searchGender && searchGender !== "All" && companion.gender !== searchGender) {
+      return false;
+    }
+
+    // 2. Proximity / Nearby filter
+    if (onlyShowNearby && nearbyRadiusMiles && nearbyRadiusMiles > 0) {
+      if (companion.distanceMiles === undefined || companion.distanceMiles > nearbyRadiusMiles) {
+        return false;
+      }
+    }
+
+    // 3. Keyword Search
+    if (searchKeyword && searchKeyword.trim()) {
+      const keyword = searchKeyword.toLowerCase().trim();
+      const nameMatch = companion.name?.toLowerCase().includes(keyword) || false;
+      const bioMatch = companion.bio?.toLowerCase().includes(keyword) || false;
+      const occMatch = companion.occupation?.toLowerCase().includes(keyword) || false;
+      const locMatch = companion.location?.toLowerCase().includes(keyword) || false;
+      const themeMatch = companion.chapterTheme?.toLowerCase().includes(keyword) || false;
+      const goalMatch = companion.relationshipGoal?.toLowerCase().includes(keyword) || false;
+      const interestMatch = companion.interests?.some((i) => i.toLowerCase().includes(keyword)) || false;
+      const valueMatch = companion.values?.some((v) => v.toLowerCase().includes(keyword)) || false;
+
+      if (!nameMatch && !bioMatch && !occMatch && !locMatch && !themeMatch && !goalMatch && !interestMatch && !valueMatch) {
+        return false;
+      }
+    }
+
+    // 4. Age Filter
+    if (companion.age !== undefined) {
+      if (searchAgeMin !== undefined && companion.age < searchAgeMin) return false;
+      if (searchAgeMax !== undefined && companion.age > searchAgeMax) return false;
+    }
+
+    // 5. Height Filter
+    if (companion.height && companion.height > 0) {
+      if (searchHeightMin !== undefined && companion.height < searchHeightMin) return false;
+      if (searchHeightMax !== undefined && companion.height > searchHeightMax) return false;
+    }
+
+    // 6. Weight Filter
+    if (companion.weight && companion.weight > 0) {
+      if (searchWeightMin !== undefined && companion.weight < searchWeightMin) return false;
+      if (searchWeightMax !== undefined && companion.weight > searchWeightMax) return false;
+    }
+
+    // 7. Selected Hobbies
+    if (searchSelectedHobbies && searchSelectedHobbies.length > 0) {
+      const matchesAny = searchSelectedHobbies.some((selectedHobby) => {
+        const normSelected = selectedHobby.toLowerCase().trim();
+        const tokens = normSelected.split(/&|,|\/|\s+and\s+/).map((t) => t.trim()).filter((t) => t.length >= 3);
+
+        return companion.interests?.some((userInterest) => {
+          const normInterest = userInterest.toLowerCase().trim();
+          if (normInterest.includes(normSelected) || normSelected.includes(normInterest)) return true;
+          return tokens.some((token) => normInterest.includes(token) || token.includes(normInterest));
+        });
+      });
+      if (!matchesAny) return false;
+    }
+
+    return true;
+  });
+
+  if (sortByDistance) {
+    filtered.sort((a, b) => {
+      const distA = a.distanceMiles !== undefined ? a.distanceMiles : 999999;
+      const distB = b.distanceMiles !== undefined ? b.distanceMiles : 999999;
+      return distA - distB;
+    });
+  }
+
+  return filtered;
+}
+
