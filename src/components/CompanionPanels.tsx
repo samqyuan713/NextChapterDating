@@ -785,10 +785,12 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                       type="button"
                       onClick={() => {
                         setSelectedMatch(companion);
-                        setActiveTab("gardens");
+                        setActiveTab("conversations");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl transition-all shadow-md text-xs cursor-pointer"
                     >
+                      <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
                       <span>Connect & Chat</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -1015,7 +1017,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   const currentMatchChatHistory = selectedMatch ? (conversations[selectedMatch.id] || []) : [];
   const [salonMode, setSalonMode] = useState<"dialogue" | "cafe">(initialSalonMode);
   const [conversationMode, setConversationMode] = useState<"chat" | "melody">("chat");
-  const [conversationsMobileTab, setConversationsMobileTab] = useState<"list" | "chat">("list");
+  const [conversationsMobileTab, setConversationsMobileTab] = useState<"list" | "chat">(selectedMatch ? "chat" : "list");
   const prevMessagesCountRef = useRef(currentMatchChatHistory.length);
   const prevSelectedMatchIdRef = useRef(selectedMatch?.id);
 
@@ -1025,6 +1027,10 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
     if (prevSelectedMatchIdRef.current !== selectedMatch?.id) {
       prevSelectedMatchIdRef.current = selectedMatch?.id;
       prevMessagesCountRef.current = currentMatchChatHistory.length;
+      if (selectedMatch) {
+        setConversationsMobileTab("chat");
+        setSalonMode("dialogue");
+      }
       window.scrollTo({ top: 0, behavior: "instant" });
       if (chatBoxRef.current) {
         chatBoxRef.current.scrollTop = 0;
