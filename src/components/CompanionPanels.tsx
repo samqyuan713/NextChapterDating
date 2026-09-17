@@ -4,7 +4,7 @@ import {
   Compass, Search, MessageSquare, Coffee, BookOpen, Heart, MapPin, 
   Sparkles, Ruler, Scale, ChevronRight, Send, Loader2, CheckCircle2, 
   SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
-  Navigation, Radio, LocateFixed, ChevronDown, Target
+  Navigation, Radio, LocateFixed, ChevronDown, Target, X
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
@@ -1018,6 +1018,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   const [salonMode, setSalonMode] = useState<"dialogue" | "cafe">(initialSalonMode);
   const [conversationMode, setConversationMode] = useState<"chat" | "melody">("chat");
   const [conversationsMobileTab, setConversationsMobileTab] = useState<"list" | "chat">(selectedMatch ? "chat" : "list");
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const prevMessagesCountRef = useRef(currentMatchChatHistory.length);
   const prevSelectedMatchIdRef = useRef(selectedMatch?.id);
 
@@ -1234,13 +1235,20 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
               </button>
             </div>
 
-            <div className="flex items-center justify-between border-b border-amber-50 pb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-2xl shadow-inner border border-white`}>
+            <div className="flex items-center justify-between border-b border-amber-50 pb-4 gap-3 flex-wrap sm:flex-nowrap">
+              <div 
+                onClick={() => setShowProfileModal(true)}
+                className="flex items-center gap-3 cursor-pointer group hover:opacity-95 transition-opacity"
+                title="Click to view companion profile"
+              >
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-2xl shadow-inner border border-white group-hover:scale-105 transition-transform shrink-0`}>
                   {selectedMatch.avatarEmoji}
                 </div>
-                <div>
-                  <h3 className="font-serif font-bold text-amber-950 text-lg leading-tight">Dialogue with {selectedMatch.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-serif font-bold text-amber-950 text-lg leading-tight flex items-center gap-1.5 flex-wrap">
+                    <span>Dialogue with {selectedMatch.name}</span>
+                    <span className="text-xs font-sans font-semibold text-amber-700">({selectedMatch.age})</span>
+                  </h3>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <p className="text-[11px] font-semibold text-amber-700">{selectedMatch.occupation} • {selectedMatch.location}</p>
                     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
@@ -1253,8 +1261,9 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveTab("gardens")}
-                className="text-xs text-amber-950 hover:text-amber-800 font-bold hover:underline transition-all cursor-pointer flex items-center gap-1 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl"
+                onClick={() => setShowProfileModal(true)}
+                className="text-xs text-amber-950 hover:text-amber-800 font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl shadow-2xs shrink-0"
+                title="View full companion profile"
               >
                 <User className="w-3.5 h-3.5 text-rose-500" />
                 <span>View Companion Details</span>
@@ -1413,6 +1422,220 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
             <p className="text-sm font-medium">Please select a companion from the inbox thread to begin your central dialogue.</p>
           </div>
         )}
+      </div>
+    </div>
+  )}
+
+  {/* Companion Profile Details Modal Popup */}
+  {showProfileModal && selectedMatch && (
+    <div 
+      className="fixed inset-0 bg-amber-950/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setShowProfileModal(false);
+      }}
+    >
+      <div className="bg-[#FAF8F5] border border-amber-200 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+        {/* Modal Header */}
+        <div className="bg-white border-b border-amber-150 p-4 sm:p-5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+              <User className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-base sm:text-lg text-amber-950 leading-tight">
+                Companion Profile
+              </h3>
+              <p className="text-[11px] text-amber-700 font-medium">
+                Verified Next Chapter Member
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowProfileModal(false)}
+            className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body: Scrollable */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-left">
+          {/* Avatar & Key Overview */}
+          <div className="bg-white border border-amber-150/80 rounded-2xl p-4 shadow-2xs flex items-center gap-4">
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-3xl sm:text-4xl shadow-md border-2 border-white shrink-0`}>
+              {selectedMatch.avatarEmoji}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-serif font-bold text-lg sm:text-xl text-amber-950">
+                  {selectedMatch.name}
+                </h4>
+                <span className="text-sm font-sans font-semibold text-amber-700">
+                  ({selectedMatch.age})
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                  ✓ Active
+                </span>
+              </div>
+
+              <p className="text-xs font-semibold text-amber-850 mt-0.5">{selectedMatch.occupation}</p>
+
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-amber-750 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-emerald-600" />
+                  <span>{selectedMatch.location}</span>
+                </span>
+                {selectedMatch.distanceMiles !== undefined && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px] border border-emerald-300">
+                    📍 {formatDistance(selectedMatch.distanceMiles, selectedMatch.distanceKm)} away
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Physical Metrics & Life Chapter */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="bg-white border border-amber-100 rounded-xl p-2.5">
+              <span className="text-[10px] uppercase font-bold text-amber-600 block">Height</span>
+              <span className="text-xs font-semibold text-amber-950 flex items-center gap-1 mt-0.5">
+                <Ruler className="w-3 h-3 text-amber-700" />
+                {selectedMatch.height ? formatHeight(selectedMatch.height) : "Not listed"}
+              </span>
+            </div>
+
+            <div className="bg-white border border-amber-100 rounded-xl p-2.5">
+              <span className="text-[10px] uppercase font-bold text-amber-600 block">Weight</span>
+              <span className="text-xs font-semibold text-amber-950 flex items-center gap-1 mt-0.5">
+                <Scale className="w-3 h-3 text-amber-700" />
+                {selectedMatch.weight ? `${selectedMatch.weight} lbs` : "Not listed"}
+              </span>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1 bg-white border border-amber-100 rounded-xl p-2.5">
+              <span className="text-[10px] uppercase font-bold text-amber-600 block">Life Chapter</span>
+              <span className="text-xs font-semibold text-amber-950 truncate block mt-0.5">
+                {selectedMatch.chapterTheme || "New Chapter"}
+              </span>
+            </div>
+          </div>
+
+          {/* Relationship Goal Banner */}
+          <div className="bg-rose-50/70 border border-rose-150 rounded-2xl p-3 flex items-center gap-2.5">
+            <Heart className="w-4 h-4 text-rose-500 fill-rose-200 shrink-0" />
+            <div className="text-xs">
+              <span className="font-bold text-rose-950">Looking for: </span>
+              <span className="text-rose-900 font-medium">{selectedMatch.relationshipGoal}</span>
+            </div>
+          </div>
+
+          {/* Bio Introduction */}
+          <div className="bg-white border border-amber-100 rounded-2xl p-4 space-y-1.5 shadow-2xs">
+            <h5 className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">
+              Personal Story & Introduction
+            </h5>
+            <p className="text-xs text-amber-950 leading-relaxed italic bg-amber-50/40 p-3 rounded-xl border border-amber-100/70">
+              "{selectedMatch.bio}"
+            </p>
+          </div>
+
+          {/* Passions & Hobbies */}
+          <div className="bg-white border border-amber-100 rounded-2xl p-4 space-y-2 shadow-2xs">
+            <h5 className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">
+              Passions, Arts & Hobbies
+            </h5>
+            <div className="flex flex-wrap gap-1.5">
+              {(selectedMatch.interests || []).map((interest) => (
+                <span
+                  key={interest}
+                  className="text-xs px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg font-medium"
+                >
+                  {interest}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Values */}
+          {selectedMatch.values && selectedMatch.values.length > 0 && (
+            <div className="bg-white border border-amber-100 rounded-2xl p-4 space-y-2 shadow-2xs">
+              <h5 className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">
+                Core Life Values
+              </h5>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedMatch.values.map((val) => (
+                  <span
+                    key={val}
+                    className="text-xs px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg font-medium"
+                  >
+                    ✦ {val}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AI Compatibility Harmony Report if available */}
+          {compatibilityReports[selectedMatch.id] && (
+            <div className="bg-emerald-50/40 border border-emerald-200 rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h5 className="text-[10px] font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
+                  <span>AI Compatibility Harmony</span>
+                </h5>
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {compatibilityReports[selectedMatch.id].matchScore}% Alignment
+                </span>
+              </div>
+              <p className="text-xs text-amber-950 italic leading-relaxed">
+                "{compatibilityReports[selectedMatch.id].summary}"
+              </p>
+              {compatibilityReports[selectedMatch.id].sharedStrengths && (
+                <div className="pt-1.5">
+                  <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block mb-1">
+                    Shared Strengths
+                  </span>
+                  <ul className="space-y-1">
+                    {compatibilityReports[selectedMatch.id].sharedStrengths.map((strength, sIdx) => (
+                      <li key={sIdx} className="text-xs text-emerald-950 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        <span>{strength}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer Actions */}
+        <div className="bg-white border-t border-amber-100 p-3.5 sm:p-4 flex items-center justify-between gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setShowProfileModal(false);
+              setActiveTab("storyroom");
+            }}
+            className="px-3 sm:px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-blue-700" />
+            <span className="hidden sm:inline">Co-create Story in Storyroom</span>
+            <span className="sm:hidden">Storyroom</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowProfileModal(false)}
+            className="px-5 py-2 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
+            <span>Continue Dialogue</span>
+          </button>
+        </div>
       </div>
     </div>
   )}
