@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
+import { UnifiedCompassExplorer } from "./components/UnifiedCompassExplorer";
 import { auth, googleAuthProvider } from "./lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
@@ -459,6 +460,14 @@ export default function App() {
         }
       }
 
+      // Ensure hobbies are never lost: merge hobbies from cachedProfile if it had any
+      const cachedInterests = cachedProfile && Array.isArray(cachedProfile.interests) ? cachedProfile.interests : [];
+      const chosenInterests = Array.isArray(chosenProfile.interests) ? chosenProfile.interests : [];
+      const mergedInterests = Array.from(new Set([...chosenInterests, ...cachedInterests]));
+      if (mergedInterests.length > chosenInterests.length) {
+        chosenProfile.interests = mergedInterests;
+      }
+
       setUserProfile(chosenProfile);
       const resolvedLoc = {
         latitude: chosenProfile.latitude ?? 1.3521,
@@ -619,18 +628,25 @@ export default function App() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${activeToken}`
         },
-        body: JSON.stringify(updated)
+        body: JSON.stringify(nextProfile)
       });
 
       if (ok && data && data.profile) {
+        const serverInterests = Array.isArray(data.profile.interests) ? data.profile.interests : [];
+        const mergedInterests = Array.from(new Set([...nextProfile.interests, ...serverInterests]));
         const synced = {
-          name: data.profile.name || updated.name || "",
-          age: data.profile.age !== null && data.profile.age !== undefined ? Number(data.profile.age) : (updated.age || 50),
-          location: data.profile.location !== undefined ? data.profile.location : (updated.location || ""),
-          interests: Array.isArray(data.profile.interests) ? data.profile.interests : (updated.interests || []),
-          bio: data.profile.bio !== undefined ? data.profile.bio : (updated.bio || ""),
-          relationshipGoal: data.profile.relationshipGoal || updated.relationshipGoal || "Companionship & Shared Outings",
-          isSubscribed: Boolean(data.profile.isSubscribed)
+          name: data.profile.name || nextProfile.name || "",
+          age: data.profile.age !== null && data.profile.age !== undefined ? Number(data.profile.age) : (nextProfile.age || 50),
+          location: data.profile.location !== undefined ? data.profile.location : (nextProfile.location || ""),
+          interests: mergedInterests.length > 0 ? mergedInterests : nextProfile.interests,
+          bio: data.profile.bio !== undefined ? data.profile.bio : (nextProfile.bio || ""),
+          relationshipGoal: data.profile.relationshipGoal || nextProfile.relationshipGoal || "Companionship & Shared Outings",
+          isSubscribed: Boolean(data.profile.isSubscribed),
+          latitude: nextProfile.latitude,
+          longitude: nextProfile.longitude,
+          gpsEnabled: nextProfile.gpsEnabled,
+          searchRadiusMiles: nextProfile.searchRadiusMiles,
+          updatedAt: data.profile.updatedAt || nowIso
         };
         setUserProfile(synced);
         if (typeof localStorage !== 'undefined') {
@@ -698,7 +714,10 @@ export default function App() {
 
   // Active view tabs: 'gardens' (Browse matches), 'my_profile' (Edit personal bio), 'search' (Search partners), 'cafe', 'conversations', 'compass', 'storyroom'
   const [activeTab, setActiveTab] = useState<"gardens" | "my_profile" | "search" | "cafe" | "conversations" | "compass" | "storyroom">("gardens");
-  const [exploreSubTab, setExploreSubTab] = useState<"deck" | "compass">("deck");
+  const [companionViewMode, setCompanionViewMode] = useState<"grid" | "deck">("grid");
+  const [isCompassExpanded, setIsCompassExpanded] = useState<boolean>(true);
+  const [customHobbyInput, setCustomHobbyInput] = useState<string>("");
+  const [hobbySaveNotice, setHobbySaveNotice] = useState<string | null>(null);
 
   // Ref to the scrollable main container underneath the fixed header
   const mainScrollRef = useRef<HTMLDivElement>(null);
@@ -711,9 +730,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeTab === "compass" || activeTab === "search") {
-      setExploreSubTab("compass");
-    }
     if (mainScrollRef.current) {
       mainScrollRef.current.scrollTo({ top: 0, behavior: "instant" });
     }
@@ -743,6 +759,7 @@ export default function App() {
       searchWeightMax,
       searchSelectedHobbies,
       searchKeyword,
+      compassFocus,
       onlyShowNearby,
       nearbyRadiusMiles,
       sortByDistance
@@ -758,6 +775,7 @@ export default function App() {
     searchWeightMax,
     searchSelectedHobbies,
     searchKeyword,
+    compassFocus,
     onlyShowNearby,
     nearbyRadiusMiles,
     sortByDistance
@@ -822,6 +840,23 @@ export default function App() {
     setOnlyShowNearby(false);
     setSwipeIndex(0);
     setSkippedSwipeIds([]);
+  };
+
+  // Align discovery criteria directly with current user's profile
+  const handleAlignWithMyProfile = () => {
+    if (!userProfile) return;
+    if (Array.isArray(userProfile.interests) && userProfile.interests.length > 0) {
+      setSearchSelectedHobbies([...userProfile.interests]);
+    }
+    if (userProfile.age) {
+      setSearchAgeMin(Math.max(35, userProfile.age - 12));
+      setSearchAgeMax(Math.min(85, userProfile.age + 12));
+    }
+    setNearbyRadiusMiles(50);
+    setOnlyShowNearby(true);
+    setSortByDistance(true);
+    setSwipeIndex(0);
+    setIsCompassExpanded(true);
   };
 
   // Premium Subscription & Save states
@@ -1406,18 +1441,71 @@ export default function App() {
     }
   };
 
-  // Toggle user interests checkboxes
+  // Toggle user interests checkboxes with immediate persistence
   const handleToggleInterest = (interest: string) => {
     if (!userProfile) return;
-    setUserProfile((prev: any) => {
-      if (!prev) return null;
-      const exists = prev.interests.includes(interest);
-      if (exists) {
-        return { ...prev, interests: prev.interests.filter((i: string) => i !== interest) };
-      } else {
-        return { ...prev, interests: [...prev.interests, interest] };
-      }
-    });
+    const curInterests = Array.isArray(userProfile.interests) ? userProfile.interests : [];
+    const exists = curInterests.includes(interest);
+    const nextInterests = exists
+      ? curInterests.filter((i: string) => i !== interest)
+      : [...curInterests, interest];
+    const updated = {
+      ...userProfile,
+      interests: nextInterests,
+      updatedAt: new Date().toISOString()
+    };
+    setUserProfile(updated);
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem("cached_user_profile", JSON.stringify(updated)); } catch {}
+    }
+    setHobbySaveNotice("Saving...");
+    saveUserProfile(updated).then(() => {
+      setHobbySaveNotice("Hobbies saved");
+      setTimeout(() => setHobbySaveNotice(null), 2500);
+    }).catch(console.error);
+  };
+
+  // Add custom user hobby with immediate persistence
+  const handleAddCustomHobby = (hobbyName: string) => {
+    const trimmed = hobbyName.trim();
+    if (!trimmed || !userProfile) return;
+    const curInterests = Array.isArray(userProfile.interests) ? userProfile.interests : [];
+    if (curInterests.some(h => h.toLowerCase() === trimmed.toLowerCase())) return;
+    const nextInterests = [...curInterests, trimmed];
+    const updated = {
+      ...userProfile,
+      interests: nextInterests,
+      updatedAt: new Date().toISOString()
+    };
+    setUserProfile(updated);
+    setCustomHobbyInput("");
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem("cached_user_profile", JSON.stringify(updated)); } catch {}
+    }
+    setHobbySaveNotice("Custom hobby added");
+    saveUserProfile(updated).then(() => {
+      setTimeout(() => setHobbySaveNotice(null), 2500);
+    }).catch(console.error);
+  };
+
+  // Remove hobby with immediate persistence
+  const handleRemoveInterest = (interest: string) => {
+    if (!userProfile) return;
+    const curInterests = Array.isArray(userProfile.interests) ? userProfile.interests : [];
+    const nextInterests = curInterests.filter((i: string) => i !== interest);
+    const updated = {
+      ...userProfile,
+      interests: nextInterests,
+      updatedAt: new Date().toISOString()
+    };
+    setUserProfile(updated);
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem("cached_user_profile", JSON.stringify(updated)); } catch {}
+    }
+    setHobbySaveNotice("Hobby removed");
+    saveUserProfile(updated).then(() => {
+      setTimeout(() => setHobbySaveNotice(null), 2500);
+    }).catch(console.error);
   };
 
   // Submit companion lifestyle compatibility quiz
@@ -2616,24 +2704,91 @@ export default function App() {
 
                 {/* Choose Hobbies/Interests tags */}
                 <div className="mt-6 border-t border-amber-50 pt-6">
-                  <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-3">Hobbies & Simple Pleasures</label>
-                  <div className="flex flex-wrap gap-2">
-                    {INTERESTS_PRESETS.map((interest) => {
-                      const isSelected = userProfile.interests.includes(interest);
-                      return (
-                        <button
-                          key={interest}
-                          onClick={() => handleToggleInterest(interest)}
-                          className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-amber-950 border-amber-950 text-white shadow-sm font-medium"
-                              : "bg-amber-50/40 border-amber-100 text-amber-800 hover:bg-amber-50"
-                          }`}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest">
+                      Hobbies & Simple Pleasures ({userProfile.interests.length} Selected)
+                    </label>
+                    {hobbySaveNotice && (
+                      <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 animate-fade-in">
+                        ✓ {hobbySaveNotice}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Active Selected Hobbies with Remove buttons */}
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {userProfile.interests.map((hobby) => (
+                        <span
+                          key={hobby}
+                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-amber-950 text-white font-medium shadow-xs"
                         >
-                          {interest}
-                        </button>
-                      );
-                    })}
+                          <span>{hobby}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveInterest(hobby)}
+                            className="text-amber-300 hover:text-white transition-colors cursor-pointer text-xs font-bold"
+                            title={`Remove ${hobby}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      {userProfile.interests.length === 0 && (
+                        <p className="text-xs text-amber-700 italic">No hobbies selected yet. Select from popular presets below or enter your own.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Custom Hobby Input */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <input
+                      type="text"
+                      value={customHobbyInput}
+                      onChange={(e) => setCustomHobbyInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomHobby(customHobbyInput);
+                        }
+                      }}
+                      placeholder="Add custom hobby (e.g. Photography, Tea Tasting, Cycling)..."
+                      className="flex-1 bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2 text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddCustomHobby(customHobbyInput)}
+                      disabled={!customHobbyInput.trim()}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shadow-xs shrink-0"
+                    >
+                      + Add Hobby
+                    </button>
+                  </div>
+
+                  {/* Preset Hobbies Picker */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+                      Popular Mature Hobbies & Interests:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto p-2 bg-amber-50/20 border border-amber-100/50 rounded-2xl">
+                      {INTERESTS_PRESETS.map((interest) => {
+                        const isSelected = userProfile.interests.includes(interest);
+                        return (
+                          <button
+                            key={interest}
+                            type="button"
+                            onClick={() => handleToggleInterest(interest)}
+                            className={`text-xs px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-amber-950 border-amber-950 text-white shadow-xs font-medium"
+                                : "bg-white border-amber-150 text-amber-850 hover:bg-amber-50"
+                            }`}
+                          >
+                            {isSelected ? `✓ ${interest}` : `+ ${interest}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -3202,634 +3357,67 @@ export default function App() {
           />
         ) : (
           /* MERGED EXPLORE & COMPASS VIEW */
-          <div id="browse-pane" className="animate-fade-in space-y-6 w-full max-w-full min-w-0">
-            {/* Header Title Banner with Sub-tab View Toggle */}
-            <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-5 md:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h2 className="text-xl md:text-2xl font-serif font-bold text-amber-950 flex items-center gap-2">
-                  <Compass className="w-6 h-6 text-emerald-600" />
-                  <span>Explore & Compass</span>
-                </h2>
-                <p className="text-xs text-amber-700 font-medium">
-                  Browse matching companion cards or fine-tune partner filters using the Discovery Compass.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5 bg-amber-50/70 p-1.5 rounded-2xl border border-amber-100/80 w-full sm:w-auto self-stretch sm:self-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setExploreSubTab("deck")}
-                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-center ${
-                    exploreSubTab === "deck"
-                      ? "bg-amber-950 text-white shadow-xs"
-                      : "text-amber-800 hover:bg-white/60"
-                  }`}
-                >
-                  <span className="truncate">🎴 Companion Cards</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExploreSubTab("compass")}
-                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 text-center ${
-                    exploreSubTab === "compass"
-                      ? "bg-amber-950 text-white shadow-xs"
-                      : "text-amber-800 hover:bg-white/60"
-                  }`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate">Discovery Compass</span>
-                </button>
-              </div>
-            </div>
-
-            {exploreSubTab === "compass" ? (
-              <DiscoveryCompassPanel
-                matches={matches}
-                compatibilityReports={compatibilityReports}
-                searchKeyword={searchKeyword}
-                setSearchKeyword={setSearchKeyword}
-                searchGender={searchGender}
-                setSearchGender={setSearchGender}
-                searchAgeMin={searchAgeMin}
-                setSearchAgeMin={setSearchAgeMin}
-                searchAgeMax={searchAgeMax}
-                setSearchAgeMax={setSearchAgeMax}
-                searchHeightMin={searchHeightMin}
-                setSearchHeightMin={setSearchHeightMin}
-                searchHeightMax={searchHeightMax}
-                setSearchHeightMax={setSearchHeightMax}
-                searchWeightMin={searchWeightMin}
-                setSearchWeightMin={setSearchWeightMin}
-                searchWeightMax={searchWeightMax}
-                setSearchWeightMax={setSearchWeightMax}
-                searchSelectedHobbies={searchSelectedHobbies}
-                setSearchSelectedHobbies={setSearchSelectedHobbies}
-                compassFocus={compassFocus}
-                setCompassFocus={setCompassFocus}
-                setSelectedMatch={setSelectedMatch}
-                setActiveTab={setActiveTab}
-                userLocation={userLocation}
-                onDetectLocation={handleDetectGPS}
-                isLocating={isLocating}
-                locationStatus={locationStatus}
-                nearbyRadiusMiles={nearbyRadiusMiles}
-                setNearbyRadiusMiles={setNearbyRadiusMiles}
-                onlyShowNearby={onlyShowNearby}
-                setOnlyShowNearby={setOnlyShowNearby}
-                sortByDistance={sortByDistance}
-                setSortByDistance={setSortByDistance}
-                onSelectPresetCity={handleSelectPresetCity}
-                userProfile={userProfile}
-                onExploreInDeck={() => {
-                  setExploreSubTab("cards");
-                  setSwipeIndex(0);
-                }}
-                onResetAllFilters={handleResetAllFilters}
-              />
-            ) : (
-              <div className="w-full max-w-full min-w-0 space-y-4">
-
-                {/* Tinder-style GPS Nearby Radar & Radius Bar */}
-                <div className="bg-white border border-amber-200/80 rounded-2xl p-3.5 sm:p-4 shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                        <Navigation className="w-4 h-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-bold text-amber-950">Nearby Tinder Radar</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-850 font-bold border border-emerald-200">
-                            {userLocation?.city || "Singapore"}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-amber-700 font-medium truncate">
-                          {userLocation?.latitude && userLocation?.longitude
-                            ? `GPS: ${userLocation.latitude.toFixed(2)}°, ${userLocation.longitude.toFixed(2)}° • ${deckCompanions.length} companions in range`
-                            : "Detect GPS to discover matching companions near you"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
-                      <button
-                        type="button"
-                        onClick={handleDetectGPS}
-                        disabled={isLocating}
-                        className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs flex-1 sm:flex-initial"
-                      >
-                        {isLocating ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Locating...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Radio className="w-3.5 h-3.5 text-emerald-200 animate-pulse" />
-                            <span>Acquire GPS 📡</span>
-                          </>
-                        )}
-                      </button>
-
-                      <select
-                        value={userLocation?.city || "Singapore"}
-                        onChange={(e) => {
-                          if (e.target.value) handleSelectPresetCity(e.target.value);
-                        }}
-                        className="bg-amber-50 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-amber-900 focus:outline-none cursor-pointer flex-1 sm:flex-initial max-w-[155px] sm:max-w-[200px] truncate"
-                      >
-                        <option value="" disabled>Presets ({locationPresetData.regionShortBadge})</option>
-                        <optgroup label={`📍 ${locationPresetData.regionLabel}`}>
-                          {locationPresetData.regionalPresets.map((preset) => (
-                            <option key={preset.name} value={preset.name}>
-                              {preset.flag ? `${preset.flag} ` : ""}{preset.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                        {locationPresetData.otherPresets.length > 0 && (
-                          <optgroup label="🌐 Other World Regions">
-                            {locationPresetData.otherPresets.map((preset) => (
-                              <option key={preset.name} value={preset.name}>
-                                {preset.flag ? `${preset.flag} ` : ""}{preset.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Radius and Distance Sorting Controls */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-amber-100/60">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider mr-1">Radius:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOnlyShowNearby(false);
-                          setSwipeIndex(0);
-                        }}
-                        className={`px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
-                          !onlyShowNearby
-                            ? "bg-amber-950 text-white shadow-xs"
-                            : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
-                        }`}
-                      >
-                        All Distances
-                      </button>
-                      {[15, 30, 50, 100].map((radius) => (
-                        <button
-                          key={radius}
-                          type="button"
-                          onClick={() => {
-                            setNearbyRadiusMiles(radius);
-                            setOnlyShowNearby(true);
-                            setSwipeIndex(0);
-                          }}
-                          className={`px-2 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
-                            onlyShowNearby && nearbyRadiusMiles === radius
-                              ? "bg-emerald-700 text-white shadow-xs"
-                              : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
-                          }`}
-                        >
-                          &lt; {radius} mi
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSortByDistance(!sortByDistance);
-                        setSwipeIndex(0);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 self-start sm:self-auto ${
-                        sortByDistance
-                          ? "bg-amber-800 text-white shadow-xs"
-                          : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
-                      }`}
-                    >
-                      <LocateFixed className="w-3 h-3" />
-                      <span>{sortByDistance ? "Closest First (Active)" : "Sort: Closest 📍"}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Active Compass Filters Banner */}
-                {hasActiveCompassFilters && (
-                  <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs shadow-2xs">
-                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                      <span className="inline-flex items-center gap-1 font-bold text-amber-950 shrink-0">
-                        <SlidersHorizontal className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Compass Filters:</span>
-                      </span>
-                      {searchGender !== "All" && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
-                          {searchGender}
-                        </span>
-                      )}
-                      {(searchAgeMin > 35 || searchAgeMax < 85) && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
-                          Age {searchAgeMin}–{searchAgeMax}
-                        </span>
-                      )}
-                      {compassFocus !== "all" && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold border border-emerald-200">
-                          🧭 {compassFocus}
-                        </span>
-                      )}
-                      {searchSelectedHobbies.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
-                          {searchSelectedHobbies.length} {searchSelectedHobbies.length === 1 ? "hobby" : "hobbies"}
-                        </span>
-                      )}
-                      {searchKeyword.trim() && (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 max-w-[120px] truncate">
-                          "{searchKeyword}"
-                        </span>
-                      )}
-                      <span className="text-[11px] text-amber-800 font-bold ml-1">
-                        ({deckCompanions.length} of {matches.length} cards)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                      <button
-                        type="button"
-                        onClick={() => setExploreSubTab("compass")}
-                        className="px-2.5 py-1 text-[11px] font-bold text-amber-900 hover:text-amber-950 hover:bg-amber-100/70 rounded-lg transition-all cursor-pointer"
-                      >
-                        Adjust Filters ⚙️
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResetAllFilters}
-                        className="px-2.5 py-1 text-[11px] font-bold bg-white text-amber-900 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all cursor-pointer shadow-2xs"
-                      >
-                        Reset Filters ✕
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-            {loadingMatches ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-700" />
-                <p className="text-xs text-amber-700 font-medium">Tending to companion cards...</p>
-              </div>
-            ) : deckCompanions.length === 0 ? (
-              <div className="py-16 text-center text-amber-900 bg-white border border-amber-100 rounded-3xl p-8 space-y-4">
-                <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto border border-amber-200">
-                  <LocateFixed className="w-7 h-7 text-amber-700" />
-                </div>
-                <h3 className="font-serif font-bold text-lg text-amber-950">
-                  {onlyShowNearby
-                    ? `No Companions Found Within ${nearbyRadiusMiles} Miles`
-                    : "No Companions Match Your Active Compass Criteria"}
-                </h3>
-                <p className="text-xs text-amber-700 max-w-sm mx-auto">
-                  {onlyShowNearby
-                    ? "Try expanding your search radius, selecting a different region, or resetting compass filters."
-                    : "Try expanding your age, gender, or recreation criteria in Discovery Compass to find more companions."}
-                </p>
-                <div className="flex flex-wrap justify-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleResetAllFilters}
-                    className="px-4 py-2 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer shadow-xs"
-                  >
-                    Reset All Filters ✕
-                  </button>
-                  {onlyShowNearby && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNearbyRadiusMiles(100);
-                        setOnlyShowNearby(true);
-                        setSwipeIndex(0);
-                      }}
-                      className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all cursor-pointer shadow-xs"
-                    >
-                      Expand to &lt; 100 mi
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setExploreSubTab("compass")}
-                    className="px-4 py-2 bg-amber-100 text-amber-950 rounded-xl text-xs font-bold hover:bg-amber-200 transition-all cursor-pointer"
-                  >
-                    Adjust in Compass 🧭
-                  </button>
-                </div>
-              </div>
-            ) : swipeIndex >= deckCompanions.length ? (
-              <div className="bg-white border border-amber-150/40 rounded-3xl p-8 text-center shadow-md animate-fade-in my-6">
-                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 border border-amber-200">
-                  <Compass className="w-8 h-8 text-amber-700 animate-pulse-subtle" />
-                </div>
-                <h3 className="font-serif font-bold text-xl text-amber-950 mb-2">You Have Reviewed All Companions in This Range</h3>
-                <p className="text-sm text-amber-900 leading-relaxed mb-6">
-                  You have explored all {deckCompanions.length} matching cards in your current discovery radius. Restart your deck anytime or jump straight into your active chats in the Dialogue Salon!
-                </p>
-                <div className="space-y-2.5">
-                  <button
-                    onClick={() => {
-                      setSwipeIndex(0);
-                      setSkippedSwipeIds([]);
-                    }}
-                    className="w-full py-3.5 bg-amber-950 text-white rounded-2xl font-bold hover:bg-amber-900 transition-all cursor-pointer text-xs uppercase tracking-wider shadow-sm"
-                  >
-                    Restart Discovery Deck 🔄
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("conversations")}
-                    className="w-full py-3.5 bg-amber-50 border border-amber-200 text-amber-950 rounded-2xl font-bold hover:bg-amber-100 transition-all cursor-pointer text-xs uppercase tracking-wider flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare className="w-4 h-4 text-rose-500" />
-                    <span>Open Dialogue Salon 💬</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              (() => {
-                const currentCompanion = deckCompanions[swipeIndex];
-                const companionReport = compatibilityReports[currentCompanion.id];
-                const currentMatchQuizAnswers = quizAnswers[currentCompanion.id] || {};
-
-                return (
-                  <div className="relative w-full max-w-full min-w-0">
-                    {/* Card Stack Background (gives 3D depth) */}
-                    {swipeIndex + 1 < deckCompanions.length && (
-                      <div className="absolute inset-x-2 sm:inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
-                    )}
-                    {swipeIndex + 2 < deckCompanions.length && (
-                      <div className="absolute inset-x-4 sm:inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
-                    )}
-
-                    {/* Swipe Card Main Component */}
-                    <div className="bg-[#FAF8F5] border-2 border-amber-100/85 rounded-3xl p-4 sm:p-6 md:p-7 shadow-md relative overflow-hidden z-10 premium-card-border animate-fade-in">
-                      {/* Decorative Top Trim */}
-                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-600 via-amber-200 to-emerald-600"></div>
-
-                      {/* Swipe Stamp Overlay */}
-                      {swipeDirection && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/30 backdrop-blur-xs z-30 transition-all duration-200 animate-fade-in">
-                          {swipeDirection === "right" && (
-                            <div className="border-4 border-emerald-600 text-emerald-600 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[-12deg] tracking-widest bg-white/95 shadow-md">
-                              CONNECT ❤️
-                            </div>
-                          )}
-                          {swipeDirection === "left" && (
-                            <div className="border-4 border-amber-700 text-amber-700 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[12deg] tracking-widest bg-white/95 shadow-md">
-                              PASS ✕
-                            </div>
-                          )}
-                          {swipeDirection === "super" && (
-                            <div className="border-4 border-amber-500 text-amber-500 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[-6deg] tracking-widest bg-white/95 shadow-md">
-                              SUPER ALIGN ✨
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest flex-wrap gap-1">
-                        <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
-                        <span className="text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 font-bold">Next Chapter Match</span>
-                      </div>
-
-                      {/* Avatar Frame */}
-                      <div className="relative mx-auto my-5 flex justify-center">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-amber-200 to-rose-200 rounded-full blur-xl opacity-30 animate-pulse-subtle"></div>
-                        <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex items-center justify-center text-4xl sm:text-5xl shadow-lg border-4 border-white relative z-10`}>
-                          {currentCompanion.avatarEmoji}
-                        </div>
-                      </div>
-
-                      {/* Header Info */}
-                      <div className="text-center">
-                        <h3 className="font-serif font-bold text-xl sm:text-2xl text-amber-950 flex items-center justify-center gap-2">
-                          {currentCompanion.name}, <span className="font-sans text-lg sm:text-xl font-semibold">{currentCompanion.age}</span>
-                        </h3>
-                        
-                        <p className="text-xs font-semibold text-amber-850 mt-1 flex items-center justify-center gap-1.5 flex-wrap">
-                          <span>{currentCompanion.occupation}</span>
-                          <span className="text-amber-200">•</span>
-                          <span className="text-[10px] text-amber-700 font-medium tracking-wider">{currentCompanion.chapterTheme}</span>
-                        </p>
-
-                        <div className="flex items-center justify-center gap-2 mt-2.5 text-xs font-semibold text-amber-700 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                            {currentCompanion.location}
-                          </span>
-                          {currentCompanion.distanceMiles !== undefined && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[11px] shadow-2xs">
-                              📍 {formatDistance(currentCompanion.distanceMiles, currentCompanion.distanceKm)} away
-                            </span>
-                          )}
-                          <span className="text-amber-200 hidden sm:inline">|</span>
-                          <span className="flex items-center gap-1">
-                            <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-50" />
-                            Goal: {currentCompanion.relationshipGoal}
-                          </span>
-                        </div>
-
-                        {/* Direct Conversation CTA Button on Card */}
-                        <div className="mt-4 flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedMatch(currentCompanion);
-                              setActiveTab("conversations");
-                            }}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.98] text-center"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-rose-300 shrink-0" />
-                            <span className="truncate">Start Conversation in Dialogue</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* EXPANDABLE SECTION 1: BIO & PASSIONS */}
-                      <div className="mt-5 pt-4 border-t border-amber-100/60">
-                        <button
-                          type="button"
-                          onClick={() => setIsBioExpanded(!isBioExpanded)}
-                          className="w-full flex items-center justify-between text-xs font-bold text-amber-900 hover:text-amber-950 transition-colors"
-                        >
-                          <span>{isBioExpanded ? "Hide Introduction & Passions" : "View Introduction & Passions"}</span>
-                          <span className="text-[10px] transition-transform duration-200" style={{ transform: isBioExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                            ▼
-                          </span>
-                        </button>
-
-                        {isBioExpanded && (
-                          <div className="mt-3 text-left space-y-3 animate-fade-in max-h-48 overflow-y-auto no-scrollbar scroll-momentum">
-                            <p className="text-xs text-amber-900 leading-relaxed italic bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50 break-words">
-                              "{currentCompanion.bio}"
-                            </p>
-                            <div>
-                              <h4 className="text-[9px] font-bold text-amber-950 uppercase tracking-widest mb-1.5">Passions & Hobbies</h4>
-                              <div className="flex flex-wrap gap-1">
-                                {currentCompanion.interests.map(interest => (
-                                  <span key={interest} className="text-[10px] px-2.5 py-1 bg-white border border-amber-100/60 text-amber-800 rounded-lg font-medium">
-                                    {interest}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* EXPANDABLE SECTION 2: AI HARMONY COMPATIBILITY ASSESSMENT */}
-                      <div className="mt-3 pt-3 border-t border-amber-100/60">
-                        <button
-                          type="button"
-                          onClick={() => setIsQuizExpanded(!isQuizExpanded)}
-                          className="w-full flex items-center justify-between text-xs font-bold text-emerald-800 hover:text-emerald-900 transition-colors"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
-                            {companionReport ? `AI Harmony Alignment (${companionReport.matchScore}%)` : "Assess AI Harmony & Compatibility"}
-                          </span>
-                          <span className="text-[10px] transition-transform duration-200" style={{ transform: isQuizExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                            ▼
-                          </span>
-                        </button>
-
-                        {isQuizExpanded && (
-                          <div className="mt-3 text-left space-y-4 animate-fade-in bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100/60">
-                            {companionReport ? (
-                              <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <h4 className="font-serif font-bold text-sm text-emerald-950">Harmony Report ({companionReport.matchScore}% Match)</h4>
-                                </div>
-                                <p className="text-xs text-amber-900 italic font-medium leading-relaxed break-words">
-                                  "{companionReport.summary}"
-                                </p>
-                                <div>
-                                  <h5 className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider mb-1">Shared Strengths</h5>
-                                  <ul className="space-y-1">
-                                    {companionReport.sharedStrengths.map((str, idx) => (
-                                      <li key={idx} className="text-[11px] text-amber-900 flex items-center gap-1.5 font-medium">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                        <span>{str}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                <p className="text-xs text-amber-900 font-medium">Answer 3 questions to generate personalized AI compatibility insights with {currentCompanion.name}:</p>
-                                {COMPATIBILITY_QUIZ_QUESTIONS.map((q) => {
-                                  const chosenVal = currentMatchQuizAnswers[q.id];
-                                  return (
-                                    <div key={q.id} className="p-3 rounded-xl bg-white border border-amber-100">
-                                      <h5 className="text-xs font-semibold text-amber-950 mb-2">{q.question}</h5>
-                                      <div className="grid grid-cols-1 gap-1.5">
-                                        {q.options.map((opt) => {
-                                          const isChecked = chosenVal === opt.value;
-                                          return (
-                                            <button
-                                              key={opt.value}
-                                              type="button"
-                                              onClick={() => handleSelectQuizOption(currentCompanion.id, q.id, opt.value)}
-                                              className={`p-2 rounded-lg border text-left text-[11px] transition-all cursor-pointer ${
-                                                isChecked
-                                                  ? "bg-amber-950 border-amber-950 text-white font-bold"
-                                                  : "bg-amber-50/50 border-amber-100 text-amber-900 hover:bg-amber-100/50"
-                                              }`}
-                                            >
-                                              <span className="font-semibold">{opt.label}: </span>
-                                              <span>{opt.text}</span>
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleSubmitQuiz(currentCompanion.id)}
-                                  disabled={isAnalyzingCompatibility}
-                                  className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                >
-                                  {isAnalyzingCompatibility ? (
-                                    <>
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                      <span>Calculating Harmony...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="w-3.5 h-3.5 fill-emerald-100" />
-                                      <span>Evaluate Compatibility</span>
-                                    </>
-                                  )}
-                                </button>
-                                {compatibilityError && (
-                                  <p className="text-[10px] text-red-600 font-medium">{compatibilityError}</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* Controls Panel Below Card */}
-                    <div className="flex items-center justify-center gap-3 sm:gap-4 mt-6">
-                      {/* Rewind */}
-                      <button
-                        onClick={handleSwipeRewind}
-                        disabled={swipeIndex === 0}
-                        className={`p-3 sm:p-3.5 rounded-full border transition-all ${
-                          swipeIndex === 0
-                            ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
-                            : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
-                        }`}
-                        title="Rewind Last Swipe"
-                      >
-                        <Undo2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </button>
-
-                      {/* Pass / Dislike */}
-                      <button
-                        onClick={() => handleSwipeAction("left")}
-                        className="p-4 sm:p-5 rounded-full bg-white border border-amber-200 text-amber-900 hover:bg-amber-50 hover:text-amber-950 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center animate-pulse-subtle"
-                        title="Pass (Swipe Left)"
-                      >
-                        <span className="text-lg sm:text-xl font-bold leading-none">✕</span>
-                      </button>
-
-                      {/* Super Match */}
-                      <button
-                        onClick={() => handleSwipeAction("super")}
-                        className="p-3 sm:p-3.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs"
-                        title="Super Connect! (Sparkles)"
-                      >
-                        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 fill-emerald-100" />
-                      </button>
-
-                      {/* Connect / Like */}
-                      <button
-                        onClick={() => handleSwipeAction("right")}
-                        className="p-4 sm:p-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center"
-                        title="Connect & Chat! (Swipe Right)"
-                      >
-                        <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-rose-100" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()
-            )}
-          </div>
-        )}
-      </div>
+          <UnifiedCompassExplorer
+            matches={matches}
+            deckCompanions={deckCompanions}
+            loadingMatches={loadingMatches}
+            swipeIndex={swipeIndex}
+            setSwipeIndex={setSwipeIndex}
+            swipeDirection={swipeDirection}
+            handleSwipeAction={handleSwipeAction}
+            handleSwipeRewind={handleSwipeRewind}
+            userLocation={userLocation}
+            onDetectLocation={handleDetectGPS}
+            isLocating={isLocating}
+            locationStatus={locationStatus}
+            nearbyRadiusMiles={nearbyRadiusMiles}
+            setNearbyRadiusMiles={setNearbyRadiusMiles}
+            onlyShowNearby={onlyShowNearby}
+            setOnlyShowNearby={setOnlyShowNearby}
+            sortByDistance={sortByDistance}
+            setSortByDistance={setSortByDistance}
+            onSelectPresetCity={handleSelectPresetCity}
+            locationPresetData={locationPresetData}
+            compassFocus={compassFocus}
+            setCompassFocus={setCompassFocus}
+            searchGender={searchGender}
+            setSearchGender={setSearchGender}
+            searchAgeMin={searchAgeMin}
+            setSearchAgeMin={setSearchAgeMin}
+            searchAgeMax={searchAgeMax}
+            setSearchAgeMax={setSearchAgeMax}
+            searchHeightMin={searchHeightMin}
+            setSearchHeightMin={setSearchHeightMin}
+            searchHeightMax={searchHeightMax}
+            setSearchHeightMax={setSearchHeightMax}
+            searchWeightMin={searchWeightMin}
+            setSearchWeightMin={setSearchWeightMin}
+            searchWeightMax={searchWeightMax}
+            setSearchWeightMax={setSearchWeightMax}
+            searchSelectedHobbies={searchSelectedHobbies}
+            setSearchSelectedHobbies={setSearchSelectedHobbies}
+            searchKeyword={searchKeyword}
+            setSearchKeyword={setSearchKeyword}
+            userProfile={userProfile}
+            compatibilityReports={compatibilityReports}
+            quizAnswers={quizAnswers}
+            handleSelectQuizOption={handleSelectQuizOption}
+            handleSubmitQuiz={handleSubmitQuiz}
+            isAnalyzingCompatibility={isAnalyzingCompatibility}
+            compatibilityError={compatibilityError}
+            isBioExpanded={isBioExpanded}
+            setIsBioExpanded={setIsBioExpanded}
+            isQuizExpanded={isQuizExpanded}
+            setIsQuizExpanded={setIsQuizExpanded}
+            setSelectedMatch={setSelectedMatch}
+            setActiveTab={setActiveTab}
+            onAlignWithMyProfile={handleAlignWithMyProfile}
+            onResetAllFilters={handleResetAllFilters}
+            viewMode={companionViewMode}
+            setViewMode={setCompanionViewMode}
+            hasActiveCompassFilters={hasActiveCompassFilters}
+            COMPATIBILITY_QUIZ_QUESTIONS={COMPATIBILITY_QUIZ_QUESTIONS}
+          />
         )}
       </main>
 

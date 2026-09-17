@@ -371,6 +371,7 @@ export interface CompanionFilterCriteria {
   searchWeightMax?: number;
   searchSelectedHobbies?: string[];
   searchKeyword?: string;
+  compassFocus?: "all" | "intellectual" | "sports" | "cozy" | "romance" | string;
   onlyShowNearby?: boolean;
   nearbyRadiusMiles?: number;
   sortByDistance?: boolean;
@@ -390,6 +391,7 @@ export function filterCompanions(
     searchWeightMax = 240,
     searchSelectedHobbies = [],
     searchKeyword = "",
+    compassFocus = "all",
     onlyShowNearby = false,
     nearbyRadiusMiles = 50,
     sortByDistance = false
@@ -405,6 +407,27 @@ export function filterCompanions(
     if (onlyShowNearby && nearbyRadiusMiles && nearbyRadiusMiles > 0) {
       if (companion.distanceMiles === undefined || companion.distanceMiles > nearbyRadiusMiles) {
         return false;
+      }
+    }
+
+    // 3. Compass Focus Filter
+    if (compassFocus && compassFocus !== "all") {
+      const interestsStr = (companion.interests || []).join(" ").toLowerCase();
+      const bioStr = (companion.bio || "").toLowerCase();
+      const combined = `${interestsStr} ${bioStr}`;
+
+      if (compassFocus === "intellectual") {
+        const keywords = ["classical", "museum", "history", "philosophy", "reading", "art", "bookstore", "astronomy", "architecture", "writing", "chess", "theatre"];
+        if (!keywords.some((k) => combined.includes(k))) return false;
+      } else if (compassFocus === "sports") {
+        const keywords = ["trail", "hiking", "pickleball", "tennis", "cycling", "sailing", "ballroom", "dancing", "golf", "swim", "walking", "outdoor"];
+        if (!keywords.some((k) => combined.includes(k))) return false;
+      } else if (compassFocus === "cozy") {
+        const keywords = ["tea", "baking", "sourdough", "gardening", "bookstore", "vinyl", "coffee", "pottery", "cooking", "jazz", "cozy", "quiet"];
+        if (!keywords.some((k) => combined.includes(k))) return false;
+      } else if (compassFocus === "romance") {
+        const keywords = ["travel", "sunset", "dinner", "romance", "wine", "poetry", "photography", "road trip", "strolls", "heart"];
+        if (!keywords.some((k) => combined.includes(k))) return false;
       }
     }
 

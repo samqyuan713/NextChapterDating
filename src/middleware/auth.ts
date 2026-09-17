@@ -64,14 +64,22 @@ export const requireAuth = async (
 
         if (!userRecord) {
           // Insert new user record if no existing email record was found
-          const displayName = decodedToken.name || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Companion');
+          const rawName = decodedToken.name || (normalizedEmail ? normalizedEmail.split('@')[0] : 'Sam');
+          const cleanName = rawName && rawName !== 'Guest Tester' ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : 'Sam';
           const insertResult = await db.insert(users)
             .values({
               uid,
               email: normalizedEmail,
-              name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
-              interests: [],
+              name: cleanName,
+              age: 50,
+              location: 'Singapore',
+              occupation: 'Architect & Landscape Enthusiast',
+              relationshipGoal: 'Companionship & Shared Outings',
+              interests: ['Classical Music', 'Museum Strolls', 'Cozy Bookstores', 'Organic Gardening', 'Baking Sourdough'],
               values: [],
+              bio: 'A thoughtful companion who appreciates quiet morning walks, art galleries, and heartwarming conversation over Earl Grey.',
+              chapterTheme: 'Next Chapter of Warm Connections',
+              isSubscribed: false,
             })
             .returning();
           userRecord = insertResult[0];

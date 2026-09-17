@@ -604,7 +604,13 @@ app.post("/api/profile", requireAuth, async (req: AuthRequest, res) => {
       .returning();
 
     console.log(`[API POST /api/profile] Successfully updated in DB:`, updated[0]);
-    return res.json({ status: "success", profile: updated[0] });
+    return res.json({
+      status: "success",
+      profile: {
+        ...updated[0],
+        updatedAt: new Date().toISOString()
+      }
+    });
   } catch (error) {
     console.error("Failed to update user profile via Drizzle ORM:", error);
     return res.status(500).json({ error: "Database profile update failed." });
