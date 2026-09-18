@@ -29,6 +29,86 @@ function formatHeight(inches: number): string {
   return `${ft}'${inch}"`;
 }
 
+/**
+ * Formats a message timestamp to include both Date and Time.
+ * If today: "Today, 11:19 PM"
+ * If yesterday: "Yesterday, 11:19 PM"
+ * If same year: "Sep 17, 11:19 PM"
+ * If different year: "Sep 17, 2025, 11:19 PM"
+ */
+export function formatMessageTimestamp(timestampStr: string): string {
+  try {
+    const d = new Date(timestampStr);
+    if (isNaN(d.getTime())) return timestampStr;
+
+    const now = new Date();
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      d.getDate() === yesterday.getDate() &&
+      d.getMonth() === yesterday.getMonth() &&
+      d.getFullYear() === yesterday.getFullYear();
+
+    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    if (isToday) {
+      return `Today, ${timeStr}`;
+    } else if (isYesterday) {
+      return `Yesterday, ${timeStr}`;
+    } else {
+      const isSameYear = d.getFullYear() === now.getFullYear();
+      const dateStr = d.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+        ...(isSameYear ? {} : { year: "numeric" })
+      });
+      return `${dateStr}, ${timeStr}`;
+    }
+  } catch {
+    return timestampStr;
+  }
+}
+
+/**
+ * Returns a clean day/date header label for grouping messages in chat stream.
+ */
+export function getMessageDateHeader(timestampStr: string): string {
+  try {
+    const d = new Date(timestampStr);
+    if (isNaN(d.getTime())) return "";
+
+    const now = new Date();
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      d.getDate() === yesterday.getDate() &&
+      d.getMonth() === yesterday.getMonth() &&
+      d.getFullYear() === yesterday.getFullYear();
+
+    if (isToday) return "Today";
+    if (isYesterday) return "Yesterday";
+
+    return d.toLocaleDateString([], {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" })
+    });
+  } catch {
+    return "";
+  }
+}
+
 // Sparks mapping matching App.tsx
 const CONVERSATION_SPARKS: Record<string, string[]> = {
   "companion-arthur": [
@@ -1170,7 +1250,7 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
                       <span className="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">You</span>
                     </div>
                     <span className="text-[10px] text-amber-600 font-medium">
-                      {new Date(post.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatMessageTimestamp(post.timestamp)}
                     </span>
                   </div>
                 </div>
@@ -1623,11 +1703,18 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                         <h4 className="font-serif font-bold text-amber-950 text-sm leading-none truncate">
                           {companion.name}, <span className="font-sans text-xs font-semibold">{companion.age}</span>
                         </h4>
-                        {companionReport && (
-                          <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold">
-                            {companionReport.matchScore}%
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {lastMsg && (
+                            <span className="text-[10px] text-amber-700 font-medium">
+                              {formatMessageTimestamp(lastMsg.timestamp).split(",")[0]}
+                            </span>
+                          )}
+                          {companionReport && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold">
+                              {companionReport.matchScore}%
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[11px] text-amber-900 font-medium truncate mt-1">
                         {lastMsg ? lastMsg.text : companion.relationshipGoal}
@@ -1737,54 +1824,76 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                       </p>
                     </div>
                   ) : (
-                    currentMatchChatHistory.map((msg) => {
+                    currentMatchChatHistory.map((msg, idx) => {
                       const isUser = msg.senderId === "user";
                       const isSystem = msg.senderId === "system";
 
+                      // Check if date divider should be displayed
+                      const currentDateHeader = getMessageDateHeader(msg.timestamp);
+                      const prevDateHeader = idx > 0 ? getMessageDateHeader(currentMatchChatHistory[idx - 1].timestamp) : null;
+                      const showDateDivider = Boolean(currentDateHeader && currentDateHeader !== prevDateHeader);
+
                       if (isSystem) {
                         return (
-                          <div key={msg.id} className="flex justify-center my-4 animate-scale-up">
-                            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-5 py-4 max-w-[90%] text-xs shadow-xs space-y-2.5">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-amber-600 animate-pulse fill-amber-100" />
-                                <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800">Premium Upgrade Blocked</span>
+                          <React.Fragment key={msg.id}>
+                            {showDateDivider && (
+                              <div className="flex items-center justify-center my-3">
+                                <span className="text-[10px] font-semibold text-amber-900/80 bg-amber-100/70 border border-amber-200/80 px-3 py-0.5 rounded-full shadow-2xs">
+                                  {currentDateHeader}
+                                </span>
                               </div>
-                              <p className="font-medium leading-relaxed">{msg.text}</p>
-                              <div className="flex justify-end gap-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const event = new CustomEvent("open-subscription-modal");
-                                    window.dispatchEvent(event);
-                                  }}
-                                  className="px-3.5 py-1.5 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl text-[10px] transition-all cursor-pointer shadow-xs border border-amber-950"
-                                >
-                                  💎 Upgrade to Premium
-                                </button>
+                            )}
+                            <div className="flex justify-center my-4 animate-scale-up">
+                              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-5 py-4 max-w-[90%] text-xs shadow-xs space-y-2.5">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-amber-600 animate-pulse fill-amber-100" />
+                                  <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800">Premium Upgrade Blocked</span>
+                                </div>
+                                <p className="font-medium leading-relaxed">{msg.text}</p>
+                                <div className="flex justify-end gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const event = new CustomEvent("open-subscription-modal");
+                                      window.dispatchEvent(event);
+                                    }}
+                                    className="px-3.5 py-1.5 bg-amber-950 hover:bg-amber-900 text-white font-bold rounded-xl text-[10px] transition-all cursor-pointer shadow-xs border border-amber-950"
+                                  >
+                                    💎 Upgrade to Premium
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </React.Fragment>
                         );
                       }
 
                       return (
-                        <div
-                          key={msg.id}
-                          className={`flex ${isUser ? "justify-end" : "justify-start"} animate-scale-up`}
-                        >
+                        <React.Fragment key={msg.id}>
+                          {showDateDivider && (
+                            <div className="flex items-center justify-center my-3">
+                              <span className="text-[10px] font-semibold text-amber-900/80 bg-amber-100/70 border border-amber-200/80 px-3 py-0.5 rounded-full shadow-2xs">
+                                {currentDateHeader}
+                              </span>
+                            </div>
+                          )}
                           <div
-                            className={`max-w-[75%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
-                              isUser
-                                ? "bg-amber-950 text-white font-medium shadow-sm rounded-br-none"
-                                : "bg-white border border-amber-100 text-amber-950 shadow-xs rounded-bl-none font-medium"
-                            }`}
+                            className={`flex ${isUser ? "justify-end" : "justify-start"} animate-scale-up`}
                           >
-                            <p>{msg.text}</p>
-                            <span className={`block text-[9px] text-right mt-1.5 ${isUser ? "text-amber-200/80" : "text-amber-600"}`}>
-                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div
+                              className={`max-w-[75%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
+                                isUser
+                                  ? "bg-amber-950 text-white font-medium shadow-sm rounded-br-none"
+                                  : "bg-white border border-amber-100 text-amber-950 shadow-xs rounded-bl-none font-medium"
+                              }`}
+                            >
+                              <p>{msg.text}</p>
+                              <span className={`block text-[9px] text-right mt-1.5 ${isUser ? "text-amber-200/80" : "text-amber-600"}`}>
+                                {formatMessageTimestamp(msg.timestamp)}
+                              </span>
+                            </div>
                           </div>
-                        </div>
+                        </React.Fragment>
                       );
                     })
                   )}
