@@ -81,6 +81,7 @@ import {
   GeoCoordinates 
 } from "./lib/locationService";
 import { INITIAL_MATCH_PROFILES, augmentProfilesWithDistance, filterCompanions } from "./data/mockProfiles";
+import { detectPlatformLeakage } from "./lib/safetyGuard";
 
 // Standard interests user can select
 const INTERESTS_PRESETS = [
@@ -1751,6 +1752,20 @@ export default function App() {
   const handleCreatePost = () => {
     if (!newPostText.trim()) return;
 
+    // Option B: Gate post creation to subscribed patrons
+    if (!userProfile?.isSubscribed) {
+      setSubscriptionPromptReason("Posting reflections in the Curated Daily Lounge is reserved for Patron members to keep the community safe and high-trust.");
+      setShowSubscriptionModal(true);
+      return;
+    }
+
+    // Option A: Anti-Leakage Guardrail for community safety
+    const leakCheck = detectPlatformLeakage(newPostText);
+    if (leakCheck.isLeak) {
+      alert(`Anti-Leakage Protection: ${leakCheck.label} detected. To prevent romance scams and protect our community, external phone numbers, Telegram handles, and links cannot be posted.`);
+      return;
+    }
+
     const userPost = {
       id: `post-${Date.now()}`,
       senderId: "user",
@@ -3337,6 +3352,8 @@ export default function App() {
             handleLikePost={handleLikePost}
             handleCreatePost={handleCreatePost}
             initialSalonMode={activeTab === "cafe" ? "cafe" : "dialogue"}
+            userProfile={userProfile}
+            onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
           />
         ) : activeTab === "storyroom" ? (
           <StoryroomPanel

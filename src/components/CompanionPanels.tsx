@@ -4,11 +4,13 @@ import {
   Compass, Search, MessageSquare, Coffee, BookOpen, Heart, MapPin, 
   Sparkles, Ruler, Scale, ChevronRight, Send, Loader2, CheckCircle2, 
   SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
-  Navigation, Radio, LocateFixed, ChevronDown, Target, X
+  Navigation, Radio, LocateFixed, ChevronDown, Target, X,
+  Shield, ShieldAlert, ShieldCheck, Lock, Unlock, ExternalLink, AlertTriangle, Crown, MessageCircle
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
 import { filterCompanions } from "../data/mockProfiles";
+import { detectPlatformLeakage, CURATED_DAILY_PROMPTS, CuratedDailyPrompt } from "../lib/safetyGuard";
 
 // Constant presets matching App.tsx
 const INTERESTS_PRESETS = [
@@ -832,6 +834,9 @@ interface CommunityCafeProps {
   isCommentReplying: boolean;
   handleLikePost: (postId: string) => void;
   handleCreatePost: () => void;
+  userProfile?: any;
+  onOpenSubscriptionModal?: () => void;
+  onConnectOneOnOne?: (companionId: string, initialPromptText?: string) => void;
 }
 
 export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
@@ -840,80 +845,331 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
   setNewPostText,
   isCommentReplying,
   handleLikePost,
-  handleCreatePost
+  handleCreatePost,
+  userProfile,
+  onOpenSubscriptionModal,
+  onConnectOneOnOne
 }) => {
+  const [selectedPromptId, setSelectedPromptId] = useState<string>(CURATED_DAILY_PROMPTS[0].id);
+  const [demoSubscribedOverride, setDemoSubscribedOverride] = useState<boolean>(false);
+  const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
+  const [localSubmissionWarning, setLocalSubmissionWarning] = useState<string | null>(null);
+
+  const activePrompt = useMemo(() => {
+    return CURATED_DAILY_PROMPTS.find(p => p.id === selectedPromptId) || CURATED_DAILY_PROMPTS[0];
+  }, [selectedPromptId]);
+
+  const isSubscribedUser = Boolean(userProfile?.isSubscribed) || demoSubscribedOverride;
+
+  // Real-time Anti-Leakage check on currently typed text
+  const leakageCheck = useMemo(() => {
+    return detectPlatformLeakage(newPostText);
+  }, [newPostText]);
+
+  const handleAttemptPost = () => {
+    if (!isSubscribedUser) {
+      if (onOpenSubscriptionModal) {
+        onOpenSubscriptionModal();
+      }
+      return;
+    }
+
+    if (leakageCheck.isLeak) {
+      setLocalSubmissionWarning(leakageCheck.reason || "External contact details are blocked to protect community safety.");
+      return;
+    }
+
+    setLocalSubmissionWarning(null);
+    handleCreatePost();
+  };
+
   return (
     <div id="cafe-pane" className="space-y-6 animate-fade-in">
-      <div className="bg-white border border-amber-100 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-serif font-bold text-amber-900 flex items-center gap-2">
-            <Coffee className="w-6 h-6 text-orange-500" />
-            <span>Community Cafe</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-amber-700 max-w-2xl">
-            A peaceful common lounge to share quiet life snapshots, recipe outcomes, morning views, and daily wisdom.
+      {/* Top Lounge Banner */}
+      <div className="bg-white border border-amber-150 rounded-3xl p-5 sm:p-7 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600 shrink-0">
+              <Coffee className="w-4 h-4" />
+            </span>
+            <h2 className="text-xl sm:text-2xl font-serif font-bold text-amber-950">
+              Curated Daily Prompt Lounge
+            </h2>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+              Formerly Community Cafe
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-amber-700 max-w-2xl font-medium leading-relaxed">
+            Slow, reflective icebreakers designed for mature companionship. Every prompt leads directly into intentional 1-on-1 conversations without off-platform noise or scams.
+          </p>
+        </div>
+
+        {/* Safety Shield Badge & Membership Pill */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowSafetyModal(true)}
+            className="px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            title="View Safety & Anti-Leakage Policy"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Anti-Leakage Guarded</span>
+          </button>
+
+          {isSubscribedUser ? (
+            <span className="px-3 py-1.5 rounded-full bg-amber-950 text-amber-200 border border-amber-800 text-[11px] font-bold flex items-center gap-1 shadow-2xs">
+              <Crown className="w-3 h-3 text-amber-400" />
+              <span>👑 Premium Lounge</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
+              className="px-3 py-1.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+            >
+              <Lock className="w-3 h-3 text-amber-700" />
+              <span>Preview Mode • Upgrade</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Option B: Active Curated Daily Prompt Carousel / Selector */}
+      <div className="bg-[#FAF8F5] border border-amber-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{activePrompt.icon}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white border border-amber-200 text-amber-900">
+              Today's Curated Theme: {activePrompt.category}
+            </span>
+          </div>
+
+          {/* Prompt Switcher Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+            {CURATED_DAILY_PROMPTS.map((prompt) => (
+              <button
+                key={prompt.id}
+                type="button"
+                onClick={() => setSelectedPromptId(prompt.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer border ${
+                  prompt.id === activePrompt.id
+                    ? "bg-amber-950 text-white border-amber-950 shadow-2xs"
+                    : "bg-white text-amber-850 hover:bg-amber-100/60 border-amber-200/70"
+                }`}
+              >
+                {prompt.icon} {prompt.category.split(" ")[0]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Featured Prompt Display */}
+        <div className="bg-white border border-amber-150 rounded-2xl p-4 sm:p-5 shadow-2xs">
+          <h3 className="font-serif font-bold text-base sm:text-lg text-amber-950 leading-snug">
+            "{activePrompt.title}"
+          </h3>
+          <p className="text-xs text-amber-700 mt-1 font-medium">
+            {activePrompt.subtitle}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#FCFAF7] border border-amber-100 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-amber-950 text-white rounded-full flex items-center justify-center font-bold text-xs">
-                ☕
+      {/* Main Grid: Left = Reflection Input / Tier Guard; Right = Curated Companion Responses */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        {/* Left Column: Response Composer or Paid-Access Upgrade Card */}
+        <div className="lg:col-span-4 space-y-5">
+          {isSubscribedUser ? (
+            /* Unlocked Composer for Paid Members */
+            <div className="bg-[#FCFAF7] border border-amber-200/90 rounded-3xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-amber-950 text-amber-200 rounded-xl flex items-center justify-center font-bold text-xs shadow-2xs">
+                    ✍️
+                  </div>
+                  <h4 className="font-serif font-bold text-sm text-amber-950">
+                    Your Reflection
+                  </h4>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                  👑 Patron Access
+                </span>
               </div>
-              <h3 className="font-serif font-bold text-base text-amber-950">Share a Quiet Thought</h3>
+
+              <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                Share your personal answer to today's prompt. Companions can read your response and invite you into slow, 1-on-1 dialogues.
+              </p>
+
+              {/* Real-time Anti-Leakage Alert if detected */}
+              {leakageCheck.isLeak && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-950 space-y-1 animate-scale-up">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Anti-Leakage Guard: {leakageCheck.label} Blocked</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-rose-800">
+                    {leakageCheck.reason}
+                  </p>
+                  {leakageCheck.matchSnippet && (
+                    <span className="inline-block mt-0.5 font-mono text-[10px] bg-white px-2 py-0.5 rounded border border-rose-200 text-rose-700">
+                      Detected: {leakageCheck.matchSnippet}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {localSubmissionWarning && !leakageCheck.isLeak && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-900">
+                  {localSubmissionWarning}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <textarea
+                  value={newPostText}
+                  onChange={(e) => {
+                    setNewPostText(e.target.value);
+                    if (localSubmissionWarning) setLocalSubmissionWarning(null);
+                  }}
+                  placeholder="In this chapter of life, my morning peace looks like..."
+                  className={`w-full h-32 bg-white border rounded-2xl p-3 text-xs text-amber-950 outline-none transition-all font-medium resize-none shadow-inner ${
+                    leakageCheck.isLeak
+                      ? "border-rose-300 focus:ring-1 focus:ring-rose-400 bg-rose-50/20"
+                      : "border-amber-200 focus:ring-1 focus:ring-amber-400"
+                  }`}
+                />
+
+                <button
+                  type="button"
+                  onClick={handleAttemptPost}
+                  disabled={!newPostText.trim() || isCommentReplying || leakageCheck.isLeak}
+                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 ${
+                    leakageCheck.isLeak
+                      ? "bg-rose-100 text-rose-400 cursor-not-allowed border border-rose-200"
+                      : "bg-amber-950 hover:bg-amber-900 disabled:opacity-50 text-white"
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    {leakageCheck.isLeak ? "Contact Sharing Blocked" : "Share Reflection in Lounge"}
+                  </span>
+                </button>
+              </div>
             </div>
+          ) : (
+            /* Option B: Paid-Access Upgrade Banner for Free Users */
+            <div className="bg-gradient-to-b from-amber-50/90 to-orange-50/50 border border-amber-200 rounded-3xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-950 text-amber-300 flex items-center justify-center shadow-xs shrink-0">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-serif font-bold text-sm text-amber-950">
+                    Curated Daily Lounge
+                  </h4>
+                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
+                    Paid Members Exclusive
+                  </span>
+                </div>
+              </div>
 
-            <p className="text-xs text-amber-700 leading-relaxed">
-              Write standard daily sentiments—from backyard birds to favorite teacups. Other companions can immediately view and respond.
-            </p>
+              <p className="text-xs text-amber-900/90 leading-relaxed font-medium">
+                To prevent unmoderated group noise, romance scam links, and off-platform disintermediation, answering daily prompts is reserved for verified Premium patrons.
+              </p>
 
-            <div className="space-y-3">
-              <textarea
-                value={newPostText}
-                onChange={(e) => setNewPostText(e.target.value)}
-                placeholder="Drinking spiced tea and watching the garden birds..."
-                className="w-full h-28 bg-white border border-amber-100 rounded-2xl p-3 text-xs text-amber-950 outline-none focus:ring-1 focus:ring-amber-300 transition-all font-medium resize-none"
-              />
+              <div className="space-y-2 bg-white/80 border border-amber-200/70 p-3 rounded-2xl text-xs text-amber-900">
+                <div className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Post reflections on daily curated questions</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Directly invite companions into 1-on-1 chats</span>
+                </div>
+                <div className="flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Protected by Anti-Leakage Guardrails</span>
+                </div>
+              </div>
 
               <button
                 type="button"
-                onClick={handleCreatePost}
-                disabled={!newPostText.trim() || isCommentReplying}
-                className="w-full py-2.5 bg-amber-950 hover:bg-amber-900 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                onClick={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
+                className="w-full py-3 bg-amber-950 hover:bg-amber-900 text-amber-100 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2"
               >
-                Post to Cafe Lounge
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Upgrade to Join Daily Lounge</span>
+              </button>
+
+              {/* Instant Evaluation Toggle so the tester/user can try the paid experience immediately */}
+              <button
+                type="button"
+                onClick={() => setDemoSubscribedOverride(true)}
+                className="w-full py-1.5 text-[10px] font-bold text-amber-700 hover:text-amber-950 underline text-center cursor-pointer transition-colors"
+              >
+                ⚡ Evaluating the app? Click to simulate Premium Access
               </button>
             </div>
-          </div>
+          )}
 
-          <div className="bg-amber-50/20 border border-amber-100 rounded-3xl p-6 space-y-3 text-amber-900">
-            <h4 className="font-serif font-bold text-sm text-amber-950">Cafe Etiquette</h4>
-            <p className="text-[11px] leading-relaxed text-amber-800 font-medium">
-              Next Chapter lounge fosters high mutual respect. Savor the peaceful, slow-reading conversations and warm morning reflections.
+          {/* Anti-Leakage Education & Safe Haven Rules Card */}
+          <div className="bg-white border border-amber-150 rounded-3xl p-5 space-y-3 shadow-2xs">
+            <div className="flex items-center gap-2 text-amber-950 font-serif font-bold text-sm">
+              <Shield className="w-4 h-4 text-emerald-600" />
+              <span>Why We Protect This Space</span>
+            </div>
+
+            <p className="text-xs text-amber-800 leading-relaxed font-medium">
+              Unlike open Facebook or Telegram groups where conversations leak into unmoderated channels and expose seniors to romance scams, Next Chapter enforces strict guardrails:
             </p>
-            <p className="text-[10px] text-emerald-700 font-bold">
-              ● Lounge active and warm
-            </p>
+
+            <ul className="space-y-1.5 text-[11px] text-amber-900 font-medium">
+              <li className="flex items-start gap-1.5">
+                <span className="text-rose-500 font-bold shrink-0">✕</span>
+                <span>No Telegram handles or WhatsApp links allowed</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-rose-500 font-bold shrink-0">✕</span>
+                <span>No phone numbers or external web links</span>
+              </li>
+              <li className="flex items-start gap-1.5">
+                <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                <span>All connections happen 1-on-1 inside verified Dialogue</span>
+              </li>
+            </ul>
           </div>
         </div>
 
-        <div className="lg:col-span-8 space-y-6">
+        {/* Right Column: Companion & Community Responses */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <h4 className="font-serif font-bold text-base text-amber-950 flex items-center gap-2">
+              <span>Companion Reflections</span>
+              <span className="text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                {activePrompt.companionResponses.length + (cafePosts.length > 0 ? cafePosts.length : 0)} Responses
+              </span>
+            </h4>
+            <span className="text-[11px] text-amber-700 font-medium hidden sm:inline">
+              Tap "Connect 1-on-1" to start a private conversation
+            </span>
+          </div>
+
+          {/* User's local posts if any have been created */}
           {cafePosts.map((post) => (
             <div
               key={post.id}
-              className="bg-white border border-amber-100 rounded-3xl p-6 shadow-xs hover:shadow-sm transition-all space-y-4"
+              className="bg-white border-2 border-amber-200/80 rounded-3xl p-5 sm:p-6 shadow-xs transition-all space-y-3"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full bg-gradient-to-tr ${post.avatarColor || "from-amber-100 to-rose-100"} flex items-center justify-center text-xl shadow-inner border border-white`}>
+                  <div className={`w-10 h-10 rounded-2xl bg-gradient-to-tr ${post.avatarColor || "from-rose-500 to-amber-500"} flex items-center justify-center text-xl shadow-inner border border-white shrink-0`}>
                     {post.avatarEmoji}
                   </div>
                   <div>
-                    <h4 className="font-serif font-bold text-amber-950 text-sm">{post.senderName}</h4>
-                    <span className="text-[10px] text-amber-600/90 font-medium">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-serif font-bold text-amber-950 text-sm">{post.senderName}</h4>
+                      <span className="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">You</span>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-medium">
                       {new Date(post.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
@@ -925,7 +1181,7 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
                   className={`px-3 py-1.5 rounded-full border text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                     post.likedByMe
                       ? "bg-rose-50 border-rose-200 text-rose-600"
-                      : "bg-white border-amber-100 text-amber-800 hover:bg-amber-50"
+                      : "bg-white border-amber-200 text-amber-800 hover:bg-amber-50"
                   }`}
                 >
                   <Heart className={`w-3.5 h-3.5 ${post.likedByMe ? "fill-rose-500 text-rose-500" : ""}`} />
@@ -933,16 +1189,16 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
                 </button>
               </div>
 
-              <p className="text-xs sm:text-sm text-amber-900 leading-relaxed pl-1 font-medium">
-                {post.text}
+              <p className="text-xs sm:text-sm text-amber-950 leading-relaxed font-medium pl-1">
+                "{post.text}"
               </p>
 
               {post.replies.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-amber-50 space-y-3 pl-4 md:pl-8">
+                <div className="mt-3 pt-3 border-t border-amber-100 space-y-2 pl-3 sm:pl-6">
                   {post.replies.map((reply: any) => (
                     <div
                       key={reply.id}
-                      className="bg-amber-50/20 border border-amber-100/40 p-3 rounded-2xl flex items-start gap-2.5 animate-scale-up"
+                      className="bg-amber-50/50 border border-amber-100 p-2.5 rounded-2xl flex items-start gap-2.5"
                     >
                       <span className="text-lg shrink-0">{reply.avatarEmoji}</span>
                       <div className="text-xs space-y-0.5">
@@ -953,17 +1209,166 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
                   ))}
                 </div>
               )}
-
-              {isCommentReplying && cafePosts[0].id === post.id && (
-                <div className="mt-4 pt-4 border-t border-amber-50 pl-4 md:pl-8 flex items-center gap-2 text-xs italic text-amber-700/80 font-medium">
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-800" />
-                  <span>A companion is drafting a warm reply...</span>
-                </div>
-              )}
             </div>
           ))}
+
+          {/* Curated Companion Responses on Active Daily Prompt */}
+          {activePrompt.companionResponses.map((item, idx) => {
+            // For free users without override, blur all but the first item to show preview value
+            const isGated = !isSubscribedUser && idx > 0;
+
+            return (
+              <div
+                key={item.companionId}
+                className={`bg-white border border-amber-150 rounded-3xl p-5 sm:p-6 shadow-2xs hover:shadow-xs transition-all space-y-3.5 relative overflow-hidden ${
+                  isGated ? "select-none" : ""
+                }`}
+              >
+                {isGated && (
+                  <div className="absolute inset-0 bg-white/75 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center">
+                    <Lock className="w-5 h-5 text-amber-800 mb-1" />
+                    <span className="text-xs font-bold text-amber-950">
+                      Curated Companion Reflection Locked
+                    </span>
+                    <p className="text-[11px] text-amber-700 max-w-xs mt-0.5">
+                      Upgrade to Premium to read all companion reflections and connect 1-on-1.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
+                      className="mt-2.5 px-4 py-1.5 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                    >
+                      Unlock with Premium
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${item.avatarColor} flex items-center justify-center text-2xl shadow-sm border-2 border-white shrink-0`}>
+                      {item.avatarEmoji}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-serif font-bold text-amber-950 text-sm sm:text-base">
+                          {item.companionName}
+                        </h4>
+                        <span className="text-xs font-semibold text-amber-750">
+                          ({item.companionAge})
+                        </span>
+                        <span className="px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                          ✓ Verified
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-amber-700 font-medium mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-emerald-600" />
+                          {item.companionLocation}
+                        </span>
+                        <span>•</span>
+                        <span>{item.publishedTime}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-150 flex items-center gap-1">
+                      <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                      <span>{item.likes}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* The reflection content */}
+                <p className="text-xs sm:text-sm text-amber-950 leading-relaxed font-medium bg-[#FCFAF7] p-3.5 rounded-2xl border border-amber-100">
+                  "{item.reflection}"
+                </p>
+
+                {/* Direct 1-on-1 Dialogue Connection Button (Option B Core Feature) */}
+                <div className="pt-1 flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-[11px] text-amber-700 italic">
+                    Inspired by {item.companionName}'s answer?
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isSubscribedUser) {
+                        if (onOpenSubscriptionModal) onOpenSubscriptionModal();
+                        return;
+                      }
+                      if (onConnectOneOnOne) {
+                        const starter = `Hi ${item.companionName}, I loved your reflection on today's prompt ("${activePrompt.title}"). It really resonated with me, and I would love to hear more!`;
+                        onConnectOneOnOne(item.companionId, starter);
+                      }
+                    }}
+                    className="px-4 py-2 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
+                    <span>Connect & Chat 1-on-1</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Safety Guardrail Explanation Modal */}
+      {showSafetyModal && (
+        <div
+          className="fixed inset-0 bg-amber-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSafetyModal(false);
+          }}
+        >
+          <div className="bg-[#FAF8F5] border border-amber-200 rounded-3xl max-w-lg w-full shadow-2xl p-6 space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-amber-150 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-amber-950">
+                  Anti-Leakage & Safety Policy
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSafetyModal(false)}
+                className="w-7 h-7 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-900 flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="text-xs text-amber-950 space-y-3 leading-relaxed">
+              <p>
+                <strong>Why we restrict off-platform contacts and links:</strong> Studies show that over 85% of online romance scams occur when fraudsters quickly move mature singles away from safe apps onto Telegram or WhatsApp.
+              </p>
+              <div className="bg-white p-3.5 rounded-2xl border border-amber-150 space-y-2">
+                <div className="font-bold text-amber-900">Protected in Next Chapter Dating:</div>
+                <ul className="space-y-1 list-disc list-inside text-amber-850">
+                  <li>Automated blocking of Telegram handles and external URLs.</li>
+                  <li>Prevention of phone number harvesting in public rooms.</li>
+                  <li>Curated daily icebreakers that lead directly into genuine 1-on-1 chats.</li>
+                  <li>Intelligent compatibility harmony reports and respectful moderation.</li>
+                </ul>
+              </div>
+              <p className="text-amber-800 italic">
+                By keeping discussions inside our protected salon, you can get to know companions at a calm, pressure-free pace.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSafetyModal(false)}
+              className="w-full py-2.5 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer"
+            >
+              Understood & Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -990,6 +1395,8 @@ interface ConversationCenterProps {
   handleLikePost?: (postId: string) => void;
   handleCreatePost?: () => void;
   initialSalonMode?: "dialogue" | "cafe";
+  userProfile?: any;
+  onOpenSubscriptionModal?: () => void;
 }
 
 export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
@@ -1011,7 +1418,9 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   isCommentReplying,
   handleLikePost,
   handleCreatePost,
-  initialSalonMode = "dialogue"
+  initialSalonMode = "dialogue",
+  userProfile,
+  onOpenSubscriptionModal
 }) => {
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const currentMatchChatHistory = selectedMatch ? (conversations[selectedMatch.id] || []) : [];
@@ -1112,7 +1521,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
             }`}
           >
             <Coffee className="w-3.5 h-3.5 text-orange-400" />
-            <span>Community Cafe ☕</span>
+            <span>Daily Prompt Lounge ☕</span>
           </button>
         </div>
       </div>
@@ -1125,6 +1534,25 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
           isCommentReplying={Boolean(isCommentReplying)}
           handleLikePost={handleLikePost}
           handleCreatePost={handleCreatePost}
+          userProfile={userProfile}
+          onOpenSubscriptionModal={onOpenSubscriptionModal}
+          onConnectOneOnOne={(companionId: string, initialPromptText?: string) => {
+            const foundMatch = matches.find(m => 
+              m.id === companionId || 
+              m.name.toLowerCase() === companionId.toLowerCase() ||
+              m.id === `companion-${companionId}`
+            );
+            if (foundMatch) {
+              setSelectedMatch(foundMatch);
+            } else if (matches.length > 0) {
+              setSelectedMatch(matches[0]);
+            }
+            setSalonMode("dialogue");
+            setConversationsMobileTab("chat");
+            if (initialPromptText) {
+              setChatInputValue(initialPromptText);
+            }
+          }}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">

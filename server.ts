@@ -681,7 +681,7 @@ app.get("/api/conversations/:matchId", requireAuth, async (req: AuthRequest, res
   }
 });
 
-// Helper to detect email, phone number, or facebook/social link patterns to prevent system bypass
+// Helper to detect email, phone number, telegram, whatsapp, social links, or external URLs to prevent platform leakage & scams
 function containsContactInfo(text: any): { hasContact: boolean; type?: string } {
   if (typeof text !== "string") {
     return { hasContact: false };
@@ -693,14 +693,38 @@ function containsContactInfo(text: any): { hasContact: boolean; type?: string } 
   if (emailRegex.test(lower)) {
     return { hasContact: true, type: "Email Address" };
   }
-  
-  // 2. Facebook keywords or link patterns
-  const facebookRegex = /(facebook\.com|fb\.com|fb\.me|facebook\s*:\s*\S+|fb\s*:\s*\S+)/;
-  if (facebookRegex.test(lower)) {
-    return { hasContact: true, type: "Facebook Link/Handle" };
+
+  // 2. Telegram (links or handles)
+  const telegramRegex = /(?:https?:\/\/)?(?:t\.me|telegram\.me|telegram\.dog)\/[a-zA-Z0-9_]{3,}|(?:telegram|tg|tele)\s*(?:is|:|@|\s)\s*@?([a-zA-Z0-9_]{4,32})/i;
+  if (telegramRegex.test(text)) {
+    return { hasContact: true, type: "Telegram Handle/Link" };
+  }
+
+  // 3. WhatsApp (links, numbers, or intent)
+  const whatsappRegex = /(?:https?:\/\/)?(?:wa\.me|api\.whatsapp\.com|chat\.whatsapp\.com)\/[a-zA-Z0-9_]+|(?:whatsapp|whats\s*app|wa\s*(?:no|num|number)?)\s*[:=\-]?\s*([+0-9\s\-()]{6,})/i;
+  if (whatsappRegex.test(text)) {
+    return { hasContact: true, type: "WhatsApp Contact/Link" };
+  }
+
+  // 4. Other external messaging apps (WeChat, LINE, Signal, Viber, Snapchat)
+  const messagingAppsRegex = /\b(?:wechat|weixin|line\s*id|signal\s*app|viber|snapchat|kik)\b\s*[:=\-]?\s*@?([a-zA-Z0-9_.\-]{3,})/i;
+  if (messagingAppsRegex.test(text)) {
+    return { hasContact: true, type: "External Messaging App (WeChat/LINE/Signal)" };
   }
   
-  // 3. Phone Number pattern check (7+ digit sequences, with support for standard separators)
+  // 5. Facebook / Instagram / Social keywords or link patterns
+  const socialRegex = /(?:facebook\.com|fb\.com|fb\.me|instagram\.com\/|tiktok\.com\/|twitter\.com\/|x\.com\/|(?:ig|insta|fb)\s*:\s*@?[a-zA-Z0-9_.\-]+)/i;
+  if (socialRegex.test(lower)) {
+    return { hasContact: true, type: "Social Media Profile / Link" };
+  }
+
+  // 6. External Web links / domains
+  const urlRegex = /(?:https?:\/\/|www\.)[a-zA-Z0-9\-.]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i;
+  if (urlRegex.test(text)) {
+    return { hasContact: true, type: "External Web Link" };
+  }
+  
+  // 7. Phone Number pattern check (7+ digit sequences, with support for standard separators)
   const phoneRegex = /(\+?\d[\s-()]*){7,15}/g;
   const phoneMatches = text.match(phoneRegex);
   if (phoneMatches) {
@@ -716,8 +740,8 @@ function containsContactInfo(text: any): { hasContact: boolean; type?: string } 
     }
   }
 
-  // 4. Phone/whatsapp/contact intent keywords followed by shorter or regular numbers
-  const keywordRegex = /(?:phone|mobile|whatsapp|number|call\s*me|text\s*me|reach\s*me)\s*(?:is\s*)?([0-9\s-()]+)/i;
+  // 8. Phone/contact intent keywords followed by shorter or regular numbers
+  const keywordRegex = /(?:phone|mobile|number|call\s*me|text\s*me|reach\s*me)\s*(?:is\s*)?([0-9\s-()]+)/i;
   const keywordMatch = keywordRegex.exec(text);
   if (keywordMatch && keywordMatch[1]) {
     const digits = keywordMatch[1].replace(/\D/g, "");
