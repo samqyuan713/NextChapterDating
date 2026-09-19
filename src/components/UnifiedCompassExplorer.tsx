@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Compass,
   Navigation,
@@ -19,6 +19,9 @@ import {
   LocateFixed,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
   User,
   Ruler,
   Scale,
@@ -207,6 +210,25 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
       prev.includes(hobby) ? prev.filter((h) => h !== hobby) : [...prev, hobby]
     );
   };
+
+  // Keyboard arrow navigation for Card Deck mode (Left / Right arrows to flip through profiles)
+  useEffect(() => {
+    if (viewMode !== "deck" || deckCompanions.length === 0) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setSwipeIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setSwipeIndex((prev) => Math.min(deckCompanions.length - 1, prev + 1));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewMode, deckCompanions.length, setSwipeIndex]);
 
   return (
     <div id="unified-compass-pane" className="animate-fade-in space-y-5 w-full max-w-full min-w-0">
@@ -850,7 +872,104 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
         </div>
       ) : (
         /* ======================== 3D CARD DECK VIEW ======================== */
-        swipeIndex >= deckCompanions.length ? (
+        <div className="space-y-4 w-full max-w-full min-w-0">
+          {/* Top Quick Profile Switcher Strip (Browse like Grid Mode) */}
+          <div className="bg-white border border-amber-200/90 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                  <Compass className="w-3.5 h-3.5" />
+                </span>
+                <div>
+                  <span className="font-bold text-amber-950">Deck Profile Navigator</span>
+                  <span className="hidden sm:inline text-[10px] text-amber-600 font-medium ml-1.5">
+                    (Click any profile below or use ← → arrow keys)
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSwipeIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={swipeIndex <= 0}
+                  className="px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-1 cursor-pointer"
+                  title="Previous Companion (Left Arrow key)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Prev</span>
+                </button>
+
+                <div className="flex items-center bg-amber-100/70 border border-amber-200/80 rounded-lg px-2 py-0.5">
+                  <select
+                    value={Math.min(swipeIndex, deckCompanions.length - 1)}
+                    onChange={(e) => setSwipeIndex(Number(e.target.value))}
+                    className="bg-transparent text-[11px] font-bold text-amber-950 focus:outline-none cursor-pointer"
+                  >
+                    {deckCompanions.map((c, i) => (
+                      <option key={c.id} value={i}>
+                        {i + 1}. {c.name} ({c.age})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSwipeIndex((prev) => Math.min(deckCompanions.length - 1, prev + 1))}
+                  disabled={swipeIndex >= deckCompanions.length - 1}
+                  className="px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center gap-1 cursor-pointer"
+                  title="Next Companion (Right Arrow key)"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className="ml-1 px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-50 transition-all flex items-center gap-1 cursor-pointer"
+                  title="Switch to Browse Grid View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden md:inline">Grid Mode</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable companion avatars bar */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scroll-smooth">
+              {deckCompanions.map((comp, idx) => {
+                const isSelected = idx === swipeIndex;
+                return (
+                  <button
+                    key={comp.id}
+                    type="button"
+                    onClick={() => setSwipeIndex(idx)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all shrink-0 cursor-pointer text-left ${
+                      isSelected
+                        ? "bg-amber-950 border-amber-950 text-white shadow-xs scale-102"
+                        : "bg-amber-50/50 border-amber-200/70 text-amber-900 hover:bg-amber-100/60"
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${comp.avatarColor} flex items-center justify-center text-xs shrink-0 shadow-2xs`}>
+                      {comp.avatarEmoji}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold leading-tight truncate max-w-[85px]">
+                        {comp.name}
+                      </p>
+                      <p className={`text-[9px] leading-tight truncate ${isSelected ? "text-amber-200" : "text-amber-600"}`}>
+                        {comp.age}y • {comp.distanceMiles !== undefined ? `${comp.distanceMiles.toFixed(0)}mi` : comp.location.split(",")[0]}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {swipeIndex >= deckCompanions.length ? (
           <div className="bg-white border border-amber-150/40 rounded-3xl p-8 text-center shadow-md animate-fade-in my-6">
             <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4 border border-amber-200">
               <Compass className="w-8 h-8 text-amber-700 animate-pulse-subtle" />
@@ -885,6 +1004,27 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
 
             return (
               <div className="relative w-full max-w-full min-w-0">
+                {/* Side Arrow Navigation Buttons for Fast Browsing */}
+                <button
+                  type="button"
+                  onClick={() => setSwipeIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={swipeIndex <= 0}
+                  className="hidden md:flex absolute left-[-20px] lg:left-[-28px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/95 border border-amber-200/90 text-amber-900 hover:bg-amber-100 disabled:opacity-30 disabled:pointer-events-none shadow-md items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  title="Previous Companion (Left Arrow)"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSwipeIndex((prev) => Math.min(deckCompanions.length - 1, prev + 1))}
+                  disabled={swipeIndex >= deckCompanions.length - 1}
+                  className="hidden md:flex absolute right-[-20px] lg:right-[-28px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/95 border border-amber-200/90 text-amber-900 hover:bg-amber-100 disabled:opacity-30 disabled:pointer-events-none shadow-md items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  title="Next Companion (Right Arrow)"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+
                 {/* 3D Depth Card Stacks */}
                 {swipeIndex + 1 < deckCompanions.length && (
                   <div className="absolute inset-x-2 sm:inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
@@ -919,7 +1059,28 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   )}
 
                   <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest flex-wrap gap-1">
-                    <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
+                      <span className="text-amber-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setSwipeIndex((prev) => Math.max(0, prev - 1))}
+                        disabled={swipeIndex <= 0}
+                        className="px-1.5 py-0.5 rounded bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold"
+                        title="Previous Profile (Left Arrow)"
+                      >
+                        ‹ Prev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSwipeIndex((prev) => Math.min(deckCompanions.length - 1, prev + 1))}
+                        disabled={swipeIndex >= deckCompanions.length - 1}
+                        className="px-1.5 py-0.5 rounded bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold"
+                        title="Next Profile (Right Arrow)"
+                      >
+                        Next ›
+                      </button>
+                    </div>
                     <span className="text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 font-bold">
                       Mature Companion Match
                     </span>
@@ -1158,7 +1319,8 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
               </div>
             );
           })()
-        )
+        )}
+        </div>
       )}
     </div>
   );
