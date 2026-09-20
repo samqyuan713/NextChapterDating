@@ -27,7 +27,10 @@ import {
   Scale,
   Search,
   Check,
-  RotateCcw
+  RotateCcw,
+  CheckCircle,
+  Briefcase,
+  ShieldCheck
 } from "lucide-react";
 import { Profile, CompatibilityAnalysis } from "../types";
 
@@ -193,6 +196,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
   COMPATIBILITY_QUIZ_QUESTIONS
 }) => {
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
 
   // Active filter count for badge
   const activeFiltersCount =
@@ -761,11 +765,21 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
 
                   {/* Avatar + Basic Details */}
                   <div className="flex items-center gap-3.5 mb-3">
-                    <div
-                      className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${companion.avatarColor} flex items-center justify-center text-2xl shadow-xs border-2 border-white shrink-0`}
-                    >
-                      {companion.avatarEmoji}
-                    </div>
+                    {companion.photoUrl && !imageLoadErrors[companion.id] ? (
+                      <img
+                        src={companion.photoUrl}
+                        alt={companion.name}
+                        className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-xs shrink-0"
+                        referrerPolicy="no-referrer"
+                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [companion.id]: true }))}
+                      />
+                    ) : (
+                      <div
+                        className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${companion.avatarColor} flex items-center justify-center text-2xl shadow-xs border-2 border-white shrink-0`}
+                      >
+                        {companion.avatarEmoji}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <h3 className="font-serif font-bold text-lg text-amber-950 truncate flex items-center gap-1.5">
                         <span>{companion.name}</span>
@@ -952,9 +966,19 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                         : "bg-amber-50/50 border-amber-200/70 text-amber-900 hover:bg-amber-100/60"
                     }`}
                   >
-                    <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${comp.avatarColor} flex items-center justify-center text-xs shrink-0 shadow-2xs`}>
-                      {comp.avatarEmoji}
-                    </div>
+                    {comp.photoUrl && !imageLoadErrors[comp.id] ? (
+                      <img
+                        src={comp.photoUrl}
+                        alt={comp.name}
+                        className="w-6 h-6 rounded-full object-cover shrink-0 shadow-2xs border border-white/60"
+                        referrerPolicy="no-referrer"
+                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [comp.id]: true }))}
+                      />
+                    ) : (
+                      <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${comp.avatarColor} flex items-center justify-center text-xs shrink-0 shadow-2xs`}>
+                        {comp.avatarEmoji}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold leading-tight truncate max-w-[85px]">
                         {comp.name}
@@ -1001,6 +1025,9 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             const currentCompanion = deckCompanions[swipeIndex];
             const companionReport = compatibilityReports[currentCompanion.id];
             const currentMatchQuizAnswers = quizAnswers[currentCompanion.id] || {};
+            const sharedHobbies = (currentCompanion.interests || []).filter((h) =>
+              (userProfile?.interests || []).includes(h)
+            );
 
             return (
               <div className="relative w-full max-w-full min-w-0">
@@ -1033,41 +1060,46 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   <div className="absolute inset-x-4 sm:inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
                 )}
 
-                {/* Swipe Card Main Container */}
-                <div className="bg-[#FAF8F5] border-2 border-amber-100/85 rounded-3xl p-4 sm:p-6 md:p-7 shadow-md relative overflow-hidden z-10 animate-fade-in">
+                {/* Dignified Companion Showcase Card Container */}
+                <div className="bg-[#FAF8F5] border-2 border-amber-100/90 rounded-3xl p-4 sm:p-6 md:p-7 shadow-md relative overflow-hidden z-10 animate-fade-in space-y-4">
                   <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-600 via-amber-200 to-emerald-600"></div>
 
-                  {/* Swipe Stamp Overlay */}
+                  {/* Respectful Status Stamp Overlay */}
                   {swipeDirection && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/30 backdrop-blur-xs z-30 transition-all duration-200 animate-fade-in">
+                    <div className="absolute inset-0 flex items-center justify-center bg-stone-900/30 backdrop-blur-xs z-30 transition-all duration-200 animate-fade-in">
                       {swipeDirection === "right" && (
-                        <div className="border-4 border-emerald-600 text-emerald-600 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[-12deg] tracking-widest bg-white/95 shadow-md">
-                          CONNECT ❤️
+                        <div className="border-4 border-emerald-600 text-emerald-700 font-bold uppercase text-2xl px-6 py-3 rounded-2xl rotate-[-8deg] tracking-wider bg-white/95 shadow-xl flex items-center gap-2">
+                          <Heart className="w-6 h-6 fill-emerald-600 text-emerald-600" />
+                          <span>INTEREST EXPRESSED</span>
                         </div>
                       )}
                       {swipeDirection === "left" && (
-                        <div className="border-4 border-amber-700 text-amber-700 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[12deg] tracking-widest bg-white/95 shadow-md">
-                          PASS ✕
+                        <div className="border-4 border-amber-700 text-amber-800 font-bold uppercase text-2xl px-6 py-3 rounded-2xl rotate-[8deg] tracking-wider bg-white/95 shadow-xl">
+                          NEXT COMPANION
                         </div>
                       )}
                       {swipeDirection === "super" && (
-                        <div className="border-4 border-amber-500 text-amber-500 font-bold uppercase text-2xl px-5 py-2.5 rounded-xl rotate-[-6deg] tracking-widest bg-white/95 shadow-md">
-                          SUPER ALIGN ✨
+                        <div className="border-4 border-amber-600 text-amber-700 font-bold uppercase text-2xl px-6 py-3 rounded-2xl rotate-[-4deg] tracking-wider bg-white/95 shadow-xl flex items-center gap-2">
+                          <Sparkles className="w-6 h-6 fill-amber-500 text-amber-500" />
+                          <span>DEEP ALIGNMENT</span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center text-[10px] font-bold text-amber-850 uppercase tracking-widest flex-wrap gap-1">
-                    <div className="flex items-center gap-1.5">
-                      <span>Card {swipeIndex + 1} of {deckCompanions.length}</span>
+                  {/* Top Deck Navigation Stepper & Badge */}
+                  <div className="flex justify-between items-center text-xs font-bold text-amber-900 uppercase tracking-wider flex-wrap gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-sans text-amber-800">
+                        Profile {swipeIndex + 1} of {deckCompanions.length}
+                      </span>
                       <span className="text-amber-300">•</span>
                       <button
                         type="button"
                         onClick={() => setSwipeIndex((prev) => Math.max(0, prev - 1))}
                         disabled={swipeIndex <= 0}
-                        className="px-1.5 py-0.5 rounded bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold"
-                        title="Previous Profile (Left Arrow)"
+                        className="px-2 py-0.5 rounded-md bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold normal-case text-xs transition-colors"
+                        title="Previous Profile"
                       >
                         ‹ Prev
                       </button>
@@ -1075,108 +1107,197 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                         type="button"
                         onClick={() => setSwipeIndex((prev) => Math.min(deckCompanions.length - 1, prev + 1))}
                         disabled={swipeIndex >= deckCompanions.length - 1}
-                        className="px-1.5 py-0.5 rounded bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold"
-                        title="Next Profile (Right Arrow)"
+                        className="px-2 py-0.5 rounded-md bg-amber-100/80 hover:bg-amber-200/80 disabled:opacity-30 text-amber-900 cursor-pointer font-bold normal-case text-xs transition-colors"
+                        title="Next Profile"
                       >
                         Next ›
                       </button>
                     </div>
-                    <span className="text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-100 font-bold">
-                      Mature Companion Match
+                    <span className="inline-flex items-center gap-1.5 text-emerald-900 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 text-xs font-bold shadow-2xs">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Next Chapter Verified Member</span>
                     </span>
                   </div>
 
-                  {/* Avatar Frame */}
-                  <div className="relative mx-auto my-5 flex justify-center">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-amber-200 to-rose-200 rounded-full blur-xl opacity-30 animate-pulse-subtle"></div>
-                    <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex items-center justify-center text-4xl sm:text-5xl shadow-lg border-4 border-white relative z-10`}>
-                      {currentCompanion.avatarEmoji}
-                    </div>
-                  </div>
-
-                  {/* Header Info */}
-                  <div className="text-center">
-                    <h3 className="font-serif font-bold text-xl sm:text-2xl text-amber-950 flex items-center justify-center gap-2">
-                      {currentCompanion.name}, <span className="font-sans text-lg sm:text-xl font-semibold">{currentCompanion.age}</span>
-                    </h3>
-
-                    <p className="text-xs font-semibold text-amber-850 mt-1 flex items-center justify-center gap-1.5 flex-wrap">
-                      <span>{currentCompanion.occupation}</span>
-                      <span className="text-amber-200">•</span>
-                      <span className="text-[10px] text-amber-700 font-medium tracking-wider">{currentCompanion.chapterTheme}</span>
-                    </p>
-
-                    <div className="flex items-center justify-center gap-2 mt-2.5 text-xs font-semibold text-amber-700 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                        {currentCompanion.location}
-                      </span>
-                      {currentCompanion.distanceMiles !== undefined && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[11px] shadow-2xs">
-                          📍 {formatDistance(currentCompanion.distanceMiles, currentCompanion.distanceKm)} away
-                        </span>
-                      )}
-                      <span className="text-amber-200 hidden sm:inline">|</span>
-                      <span className="flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-50" />
-                        Goal: {currentCompanion.relationshipGoal}
-                      </span>
-                    </div>
-
-                    {/* Direct Conversation CTA Button on Card */}
-                    <div className="mt-4 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedMatch(currentCompanion);
-                          setActiveTab("conversations");
-                        }}
-                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white rounded-2xl font-bold text-xs transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.98] text-center"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-rose-300 shrink-0" />
-                        <span className="truncate">Start Conversation in Dialogue</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* EXPANDABLE SECTION 1: BIO & PASSIONS */}
-                  <div className="mt-5 pt-4 border-t border-amber-100/60">
-                    <button
-                      type="button"
-                      onClick={() => setIsBioExpanded(!isBioExpanded)}
-                      className="w-full flex items-center justify-between text-xs font-bold text-amber-900 hover:text-amber-950 transition-colors cursor-pointer"
-                    >
-                      <span>{isBioExpanded ? "Hide Introduction & Passions" : "View Introduction & Passions"}</span>
-                      <span className="text-[10px] transition-transform duration-200" style={{ transform: isBioExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                        ▼
-                      </span>
-                    </button>
-
-                    {isBioExpanded && (
-                      <div className="mt-3 text-left space-y-3 animate-fade-in max-h-48 overflow-y-auto">
-                        <p className="text-xs text-amber-900 leading-relaxed italic bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50 break-words">
-                          "{currentCompanion.bio}"
-                        </p>
-                        <div>
-                          <h4 className="text-[9px] font-bold text-amber-950 uppercase tracking-widest mb-1.5">Passions & Hobbies</h4>
-                          <div className="flex flex-wrap gap-1">
-                            {currentCompanion.interests.map((interest) => (
-                              <span key={interest} className="text-[10px] px-2.5 py-1 bg-white border border-amber-100/60 text-amber-800 rounded-lg font-medium">
-                                {interest}
-                              </span>
-                            ))}
-                          </div>
+                  {/* BIG PROFILE PHOTO SHOWCASE WITH KEY BIO-DATA OVERLAY */}
+                  <div className="relative w-full h-80 sm:h-96 md:h-[430px] rounded-2xl sm:rounded-3xl overflow-hidden border border-amber-900/10 shadow-md bg-stone-100 group select-none">
+                    {currentCompanion.photoUrl && !imageLoadErrors[currentCompanion.id] ? (
+                      <img
+                        src={currentCompanion.photoUrl}
+                        alt={currentCompanion.name}
+                        className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-101"
+                        referrerPolicy="no-referrer"
+                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [currentCompanion.id]: true }))}
+                      />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex flex-col items-center justify-center p-6 text-center text-white relative`}>
+                        <div className="w-28 h-28 rounded-full bg-white/20 backdrop-blur-md border-4 border-white/60 flex items-center justify-center text-6xl shadow-xl mb-4">
+                          {currentCompanion.avatarEmoji}
                         </div>
+                        <p className="font-serif text-2xl font-bold">{currentCompanion.name}</p>
+                        <p className="text-sm font-medium opacity-90">{currentCompanion.chapterTheme}</p>
                       </div>
                     )}
+
+                    {/* Top Floating Badges on Photo */}
+                    <div className="absolute top-3 inset-x-3 sm:inset-x-4 flex items-center justify-between pointer-events-none gap-2 z-10">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-stone-900 border border-amber-200/80 text-xs font-bold shadow-sm">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Verified Profile</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900/80 backdrop-blur-md text-amber-100 border border-white/20 text-xs font-semibold shadow-sm">
+                        <Compass className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{currentCompanion.chapterTheme}</span>
+                      </span>
+                    </div>
+
+                    {/* Bottom Dark Vignette Overlay with Prominent Name, Age, Location, & Goal */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-stone-950/95 via-stone-950/65 to-transparent pt-24 pb-5 px-5 sm:px-7 text-white text-left z-10">
+                      {/* Name and Age */}
+                      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                        <h2 className="font-serif font-bold text-2xl sm:text-3xl lg:text-4xl text-white tracking-tight drop-shadow-sm flex items-baseline gap-2.5">
+                          <span>{currentCompanion.name}</span>
+                          <span className="font-sans text-xl sm:text-2xl font-light text-amber-200">
+                            ({currentCompanion.age})
+                          </span>
+                          {currentCompanion.gender && (
+                            <span className="text-xs font-sans font-medium px-2.5 py-0.5 rounded-full bg-white/20 text-white/95 border border-white/30 backdrop-blur-xs">
+                              {currentCompanion.gender}
+                            </span>
+                          )}
+                        </h2>
+                      </div>
+
+                      {/* Location & Distance */}
+                      <div className="flex items-center gap-2 mt-2 text-sm sm:text-base font-medium text-amber-50/95 flex-wrap">
+                        <span className="flex items-center gap-1 text-emerald-300 font-semibold">
+                          <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>{currentCompanion.location}</span>
+                        </span>
+                        {currentCompanion.distanceMiles !== undefined && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/30 backdrop-blur-xs border border-emerald-400/40 text-emerald-200 text-xs font-bold">
+                            📍 {formatDistance(currentCompanion.distanceMiles, currentCompanion.distanceKm)} away
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Occupation & Relationship Goal */}
+                      <div className="flex items-center gap-2 mt-2.5 text-xs flex-wrap">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-stone-900/70 backdrop-blur-xs border border-amber-400/30 text-amber-200 font-medium">
+                          <Briefcase className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                          <span>{currentCompanion.occupation}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-950/70 backdrop-blur-xs border border-rose-400/30 text-rose-200 font-medium">
+                          <Heart className="w-3.5 h-3.5 fill-rose-300 text-rose-300 shrink-0" />
+                          <span>Seeking: {currentCompanion.relationshipGoal}</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* EXPANDABLE SECTION 2: AI HARMONY COMPATIBILITY */}
-                  <div className="mt-3 pt-3 border-t border-amber-100/60">
+                  {/* KEY BIO-DATA DOSSIER: LIFE STORY & INTRODUCTION */}
+                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 sm:p-5 text-left shadow-2xs">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-900 uppercase tracking-wider mb-2">
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-amber-700" />
+                        <span>Life Story & Personal Introduction</span>
+                      </span>
+                      <span className="text-[11px] font-sans font-medium text-amber-700 normal-case">
+                        {currentCompanion.chapterTheme}
+                      </span>
+                    </div>
+                    <p className="text-sm sm:text-base text-amber-950 leading-relaxed italic font-serif">
+                      "{currentCompanion.bio}"
+                    </p>
+                  </div>
+
+                  {/* KEY BIO-DATA METRICS TILES */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-left">
+                    <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">Age & Height</p>
+                      <p className="text-xs font-bold text-amber-950 mt-1 flex items-center gap-1">
+                        <Ruler className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>{currentCompanion.age} yrs</span>
+                        {currentCompanion.height && <span>• {formatHeight(currentCompanion.height).split(" ")[0]}</span>}
+                      </p>
+                    </div>
+                    <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">Vocation</p>
+                      <p className="text-xs font-bold text-amber-950 mt-1 truncate" title={currentCompanion.occupation}>
+                        {currentCompanion.occupation}
+                      </p>
+                    </div>
+                    <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">Location</p>
+                      <p className="text-xs font-bold text-amber-950 mt-1 truncate" title={currentCompanion.location}>
+                        {currentCompanion.location}
+                      </p>
+                    </div>
+                    <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] uppercase tracking-wider text-rose-600 font-bold">Seeking Goal</p>
+                      <p className="text-xs font-bold text-rose-700 mt-1 truncate" title={currentCompanion.relationshipGoal}>
+                        {currentCompanion.relationshipGoal}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PASSIONS & SHARED LEISURE INTERESTS */}
+                  <div className="text-left bg-white border border-amber-200/70 rounded-2xl p-4 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                        Passions & Leisure Interests
+                      </h4>
+                      {sharedHobbies.length > 0 && (
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          ★ {sharedHobbies.length} Shared with You
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(currentCompanion.interests || []).map((interest) => {
+                        const isShared = sharedHobbies.includes(interest);
+                        return (
+                          <span
+                            key={interest}
+                            className={`text-xs px-2.5 py-1 rounded-lg font-medium border transition-all ${
+                              isShared
+                                ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold shadow-2xs"
+                                : "bg-amber-50/60 border-amber-200/60 text-amber-900"
+                            }`}
+                          >
+                            {isShared ? `★ ${interest}` : interest}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* CORE VALUES & PHILOSOPHY */}
+                  {currentCompanion.values && currentCompanion.values.length > 0 && (
+                    <div className="text-left bg-white border border-amber-200/70 rounded-2xl p-3.5 shadow-2xs">
+                      <h4 className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-2">
+                        Core Values & Guiding Principles
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentCompanion.values.map((val) => (
+                          <span
+                            key={val}
+                            className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-medium"
+                          >
+                            ✦ {val}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* COMPATIBILITY ACCORDION */}
+                  <div className="pt-2 border-t border-amber-200/60">
                     <button
                       type="button"
                       onClick={() => setIsQuizExpanded(!isQuizExpanded)}
-                      className="w-full flex items-center justify-between text-xs font-bold text-emerald-800 hover:text-emerald-900 transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-between text-xs font-bold text-emerald-800 hover:text-emerald-900 transition-colors cursor-pointer py-1"
                     >
                       <span className="flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
@@ -1273,47 +1394,56 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   </div>
                 </div>
 
-                {/* Controls Below Card */}
-                <div className="flex items-center justify-center gap-3 sm:gap-4 mt-6">
-                  {/* Rewind */}
+                {/* RESPECTFUL DIGNIFIED CONTROLS BELOW CARD */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 mt-5">
+                  {/* Previous / Return */}
                   <button
+                    type="button"
                     onClick={handleSwipeRewind}
                     disabled={swipeIndex === 0}
-                    className={`p-3 sm:p-3.5 rounded-full border transition-all ${
+                    className={`w-full sm:w-auto px-4 py-3 rounded-2xl border transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
                       swipeIndex === 0
-                        ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
-                        : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+                        ? "bg-stone-50 border-stone-200 text-stone-300 cursor-not-allowed"
+                        : "bg-amber-50/70 border-amber-200 text-amber-800 hover:bg-amber-100 cursor-pointer shadow-2xs"
                     }`}
-                    title="Rewind Last Swipe"
+                    title="Return to Previous Companion"
                   >
-                    <Undo2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Undo2 className="w-4 h-4" />
+                    <span>‹ Previous</span>
                   </button>
 
-                  {/* Pass / Dislike */}
+                  {/* Main Action: Connect & Start Dialogue */}
                   <button
-                    onClick={() => handleSwipeAction("left")}
-                    className="p-4 sm:p-5 rounded-full bg-white border border-amber-200 text-amber-900 hover:bg-amber-50 hover:text-amber-950 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center"
-                    title="Pass (Swipe Left)"
+                    type="button"
+                    onClick={() => {
+                      setSelectedMatch(currentCompanion);
+                      setActiveTab("conversations");
+                    }}
+                    className="w-full sm:flex-1 py-3.5 px-5 bg-amber-950 hover:bg-amber-900 text-white rounded-2xl font-bold text-sm transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2"
                   >
-                    <span className="text-lg sm:text-xl font-bold leading-none">✕</span>
+                    <MessageSquare className="w-4 h-4 text-rose-300 shrink-0" />
+                    <span>Start Dialogue with {currentCompanion.name}</span>
                   </button>
 
-                  {/* Super Match */}
+                  {/* Express Interest / Connect */}
                   <button
-                    onClick={() => handleSwipeAction("super")}
-                    className="p-3 sm:p-3.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-xs"
-                    title="Super Connect! (Sparkles)"
-                  >
-                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 fill-emerald-100" />
-                  </button>
-
-                  {/* Connect / Like */}
-                  <button
+                    type="button"
                     onClick={() => handleSwipeAction("right")}
-                    className="p-4 sm:p-5 rounded-full bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:scale-110 active:scale-90 transition-all cursor-pointer shadow-md flex items-center justify-center"
-                    title="Connect & Chat! (Swipe Right)"
+                    className="w-full sm:w-auto px-4 py-3 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                    title="Express Interest & Save Profile"
                   >
-                    <Heart className="w-5 h-5 sm:w-6 sm:h-6 fill-rose-100" />
+                    <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                    <span>Express Interest</span>
+                  </button>
+
+                  {/* Next Profile */}
+                  <button
+                    type="button"
+                    onClick={() => handleSwipeAction("left")}
+                    className="w-full sm:w-auto px-4 py-3 bg-white hover:bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                    title="Next Companion Profile"
+                  >
+                    <span>Next Profile ›</span>
                   </button>
                 </div>
               </div>

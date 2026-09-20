@@ -20,6 +20,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I spent my life in busy Singapore kitchens, but now my sanctuary is my greenhouse filled with rare orchids. I still bake daily—there's always sourdough or cardamom buns on the counter. Looking for an active, enthusiastic partner to travel, try exotic street foods, and practice peaceful Tai Chi with on sunny mornings.",
     avatarEmoji: "🌸",
     avatarColor: "from-pink-100 to-rose-200 text-rose-950",
+    photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1000&q=80",
     height: 62, // 5'2"
     weight: 122,
     gender: "Female",
@@ -39,6 +40,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "After 35 years in the classroom, I'm enjoying a slower pace. I spend my mornings growing heirloom tomatoes and my afternoons reading near the window. Widowed four years ago, I find myself missing deep, thoughtful conversation over Earl Grey, museum strolls, and a companion to share the quiet beauty of this season.",
     avatarEmoji: "👨‍🏫",
     avatarColor: "from-amber-100 to-amber-200 text-amber-800",
+    photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1000&q=80",
     height: 71, // 5'11"
     weight: 175,
     gender: "Male",
@@ -58,6 +60,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Life's next chapter isn't a retirement from passion; it's a blank canvas! I curate art exhibits and paint seaside landscapes. I love spontaneous coastal drives, farmers' markets, indie cinemas, and sharing laughter over a glass of Pinot Noir. Seeking someone open-minded, ready for new trails, and looking to paint a vivid chapter together.",
     avatarEmoji: "🎨",
     avatarColor: "from-rose-100 to-rose-200 text-rose-800",
+    photoUrl: "https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&w=1000&q=80",
     height: 66, // 5'6"
     weight: 132,
     gender: "Female",
@@ -77,6 +80,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I spent my life in the skies, but now my feet are firmly planted on the dock. I restore vintage sailboats and smoke a mean brisket for neighbors. I appreciate live jazz, a well-placed joke, and warm Savannah nights. Looking for a warm, caring companion to share the captain's bench—both on the river and in simple daily rhythms.",
     avatarEmoji: "⛵",
     avatarColor: "from-blue-100 to-blue-200 text-blue-800",
+    photoUrl: "https://images.unsplash.com/photo-1552058544-f2b08422138a?auto=format&fit=crop&w=1000&q=80",
     height: 73, // 6'1"
     weight: 195,
     gender: "Male",
@@ -96,6 +100,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I teach students how to find their true voices on stage. Outside of school, I have a deep passion for horticulture, cozy tea shops, and community theater. I love baking tarts and cuddling with my golden retriever. Looking for a genuine, kind person who enjoys local plays, acoustic guitar, and believes kindness is the best currency.",
     avatarEmoji: "🎭",
     avatarColor: "from-purple-100 to-purple-200 text-purple-800",
+    photoUrl: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=1000&q=80",
     height: 64, // 5'4"
     weight: 140,
     gender: "Female",
@@ -115,6 +120,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I retired from caring for boulder's local wildlife, but nature remains my sanctuary. You can usually find me with a telephoto lens tracking birds or pressing botanical specimens. I live simply, cherish morning silence, and listen to acoustic guitar. Seeking a partner who loves fresh mountain air, quiet road trips, and cozy evenings near a woodstove.",
     avatarEmoji: "🦉",
     avatarColor: "from-emerald-100 to-emerald-200 text-emerald-800",
+    photoUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1000&q=80",
     height: 67, // 5'7"
     weight: 135,
     gender: "Female",
@@ -134,6 +140,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Designing gardens has taught me that the finest blooms take patience. I'm Clara, looking for someone who loves early morning coastal mist, light hikes, and sharing quiet laughter. Let's design our next vibrant landscape together.",
     avatarEmoji: "🌿",
     avatarColor: "from-teal-100 to-emerald-200 text-emerald-900",
+    photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80",
     height: 65, // 5'5"
     weight: 125,
     gender: "Female",
@@ -153,6 +160,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "After a lifetime of playing concertos, I appreciate the beautiful spaces between the notes. I love intimate chamber concerts, herbal tea, and discussing local history. Hoping to find a kindred spirit for thoughtful morning chats.",
     avatarEmoji: "🎻",
     avatarColor: "from-fuchsia-100 to-purple-250 text-purple-900",
+    photoUrl: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1000&q=80",
     height: 63, // 5'3"
     weight: 118,
     gender: "Female",
@@ -172,6 +180,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Sweet smells and warm ovens make a house a home. I spend my days baking healthy artisanal breads and playing doubles pickleball. I'm searching for an active partner who enjoys foodie adventures, travel, and honest, warm connections.",
     avatarEmoji: "🥐",
     avatarColor: "from-amber-100 to-orange-200 text-amber-950",
+    photoUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=1000&q=80",
     height: 68, // 5'8"
     weight: 145,
     gender: "Female",
@@ -191,6 +200,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "After decades of restoring wooden temples in Kyoto, I now spend my time cultivating miniature bonsai pines and practicing traditional calligraphy. I cherish structured silence, hot sencha tea, and gentle bike rides. Seeking an open-hearted companion to enjoy the quiet transition of seasons, poetry, and occasional travels.",
     avatarEmoji: "🪴",
     avatarColor: "from-emerald-100 to-teal-100 text-teal-900",
+    photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=80",
     height: 66, // 5'6"
     weight: 140,
     gender: "Male",
@@ -210,6 +220,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Having spent forty years helping people find inner balance, I am enjoying my own quiet days of morning pranayama, nurturing my terrace herb garden, and reading biographies. I listen to classical instrumental tunes and enjoy making spiced chai from scratch. Seeking a kind, conscious partner for walks, travels, and soulful conversations.",
     avatarEmoji: "🧘‍♂️",
     avatarColor: "from-amber-100 to-yellow-250 text-amber-950",
+    photoUrl: "https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=1000&q=80",
     height: 69, // 5'9"
     weight: 158,
     gender: "Male",
@@ -229,6 +240,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "A former city designer who decided to swap concrete for vineyards. I love making small-batch wines, coastal trail runs, and the crackle of vintage vinyl records on a rainy evening. Seeking a warm-hearted companion to co-write our life's next beautiful chapter of spontaneous road trips and quiet sunset laughter.",
     avatarEmoji: "🍇",
     avatarColor: "from-purple-200 to-indigo-300 text-indigo-900",
+    photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=1000&q=80",
     height: 71, // 5'11"
     weight: 172,
     gender: "Male",
@@ -248,6 +260,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Caring for children keeps me young, and playing the cello keeps my soul grounded. When I'm not at the clinic, I'm baking artisan sourdough, browsing old bookstores, or kayaking on the lake. Looking for a kind, active partner who appreciates good laughs, classic music, and quiet morning conversations.",
     avatarEmoji: "🎻",
     avatarColor: "from-rose-100 to-orange-200 text-rose-900",
+    photoUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1000&q=80",
     height: 66, // 5'6"
     weight: 128,
     gender: "Female",
@@ -267,6 +280,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I restore historic timber homes and craft custom wood furniture. I start my mornings roasting fresh coffee beans and love getting lost in Pacific Northwest forests. Seeking an honest, thoughtful partner for hiking, sailing, and sharing simple moments by a crackling fireplace.",
     avatarEmoji: "🪵",
     avatarColor: "from-amber-200 to-stone-300 text-stone-900",
+    photoUrl: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=1000&q=80",
     height: 73, // 6'1"
     weight: 190,
     gender: "Male",
@@ -286,6 +300,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "I spent my career restoring pre-war shophouses across Malaysia. Now, I roast artisan Nanyang Liberica beans, sketch tropical greenery, and enjoy quiet mornings with a good book. Looking for a warm-hearted companion to travel regionally, share street food discoveries, and appreciate life's peaceful moments.",
     avatarEmoji: "☕",
     avatarColor: "from-amber-100 to-amber-250 text-amber-950",
+    photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=1000&q=80",
     height: 68, // 5'8"
     weight: 154,
     gender: "Male",
@@ -305,6 +320,7 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     bio: "Weaving Thai silk by hand taught me to appreciate the beauty of each single thread coming together. I love cooking fragrant herb-infused dishes for close friends, painting lotus ponds at dawn, and walking through floral markets. Seeking a sincere, kind partner for genuine smiles and shared weekend adventures.",
     avatarEmoji: "🌺",
     avatarColor: "from-rose-100 to-orange-100 text-rose-950",
+    photoUrl: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=1000&q=80",
     height: 63, // 5'3"
     weight: 121,
     gender: "Female",

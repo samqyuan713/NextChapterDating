@@ -16,6 +16,7 @@ export interface Profile {
   values: string[];
   avatarColor: string; // Tailwind gradient or color values
   avatarEmoji: string;
+  photoUrl?: string; // High-resolution portrait photograph
   quizAnswers?: Record<string, string>;
   quizScoreMatch?: number;
   height?: number; // Height in inches (e.g. 71 for 5'11")
