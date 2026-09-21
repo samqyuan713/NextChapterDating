@@ -21,7 +21,6 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  LayoutGrid,
   User,
   Ruler,
   Scale,
@@ -128,8 +127,8 @@ export interface UnifiedCompassExplorerProps {
   setActiveTab: (tab: any) => void;
   onAlignWithMyProfile: () => void;
   onResetAllFilters: () => void;
-  viewMode: "grid" | "deck";
-  setViewMode: (mode: "grid" | "deck") => void;
+  viewMode?: "grid" | "deck";
+  setViewMode?: (mode: "grid" | "deck") => void;
   hasActiveCompassFilters: boolean;
   COMPATIBILITY_QUIZ_QUESTIONS: any[];
 }
@@ -215,9 +214,9 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
     );
   };
 
-  // Keyboard arrow navigation for Card Deck mode (Left / Right arrows to flip through profiles)
+  // Keyboard arrow navigation for Card Deck (Left / Right arrows to flip through profiles)
   useEffect(() => {
-    if (viewMode !== "deck" || deckCompanions.length === 0) return;
+    if (deckCompanions.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)) {
         return;
@@ -232,7 +231,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [viewMode, deckCompanions.length, setSwipeIndex]);
+  }, [deckCompanions.length, setSwipeIndex]);
 
   return (
     <div id="unified-compass-pane" className="animate-fade-in space-y-5 w-full max-w-full min-w-0">
@@ -298,30 +297,10 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             {isFiltersExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
-          {/* View Mode Switcher: Grid vs Deck */}
-          <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-200 shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("grid")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === "grid"
-                  ? "bg-amber-950 text-white shadow-xs"
-                  : "text-amber-900 hover:bg-white/60"
-              }`}
-            >
-              <span>▦ Browse Grid ({deckCompanions.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("deck")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                viewMode === "deck"
-                  ? "bg-amber-950 text-white shadow-xs"
-                  : "text-amber-900 hover:bg-white/60"
-              }`}
-            >
-              <span>🎴 Card Deck</span>
-            </button>
+          {/* Companion Deck Count Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900 shrink-0 shadow-2xs">
+            <span>🎴</span>
+            <span>{deckCompanions.length} Profiles in Deck</span>
           </div>
         </div>
       </div>
@@ -724,168 +703,8 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             )}
           </div>
         </div>
-      ) : viewMode === "grid" ? (
-        /* ======================== BROWSE GRID VIEW ======================== */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deckCompanions.map((companion, idx) => {
-            const companionReport = compatibilityReports[companion.id];
-            // Check if companion shares any hobbies with userProfile
-            const userHobbies = userProfile && Array.isArray(userProfile.interests) ? userProfile.interests : [];
-            const sharedHobbies = (companion.interests || []).filter((i) =>
-              userHobbies.some((uh: string) => uh.toLowerCase() === i.toLowerCase())
-            );
-
-            return (
-              <div
-                key={companion.id}
-                className="bg-white border border-amber-200/90 rounded-3xl p-5 shadow-xs flex flex-col justify-between hover:shadow-md transition-all hover:border-amber-300 relative group"
-              >
-                <div>
-                  {/* Top Bar: Proximity Badge + Match Badge */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    {companion.distanceMiles !== undefined ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-[11px]">
-                        📍 {formatDistance(companion.distanceMiles, companion.distanceKm)}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-amber-700 font-medium">
-                        📍 {companion.location}
-                      </span>
-                    )}
-
-                    {companionReport?.matchScore ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px] border border-amber-200">
-                        <Sparkles className="w-3 h-3 text-amber-600 fill-amber-300" />
-                        <span>{companionReport.matchScore}% Align</span>
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-amber-600 font-bold">Mature Match</span>
-                    )}
-                  </div>
-
-                  {/* Avatar + Basic Details */}
-                  <div className="flex items-center gap-3.5 mb-3">
-                    {companion.photoUrl && !imageLoadErrors[companion.id] ? (
-                      <img
-                        src={companion.photoUrl}
-                        alt={companion.name}
-                        className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-xs shrink-0"
-                        referrerPolicy="no-referrer"
-                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [companion.id]: true }))}
-                      />
-                    ) : (
-                      <div
-                        className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${companion.avatarColor} flex items-center justify-center text-2xl shadow-xs border-2 border-white shrink-0`}
-                      >
-                        {companion.avatarEmoji}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-serif font-bold text-lg text-amber-950 truncate flex items-center gap-1.5">
-                        <span>{companion.name}</span>
-                        <span className="text-sm font-sans font-semibold text-amber-700">({companion.age})</span>
-                      </h3>
-                      <p className="text-xs text-amber-850 font-medium truncate">{companion.occupation}</p>
-                      <p className="text-[11px] text-amber-600 font-medium truncate">{companion.chapterTheme}</p>
-                    </div>
-                  </div>
-
-                  {/* Physical metrics */}
-                  {(companion.height || companion.weight) && (
-                    <div className="flex items-center gap-2 text-[11px] text-amber-750 font-medium mb-3">
-                      {companion.height && (
-                        <span className="flex items-center gap-1">
-                          <Ruler className="w-3 h-3 text-amber-600" />
-                          <span>{formatHeight(companion.height).split(" ")[0]}</span>
-                        </span>
-                      )}
-                      {companion.weight && (
-                        <span className="flex items-center gap-1">
-                          <Scale className="w-3 h-3 text-amber-600" />
-                          <span>{companion.weight} lbs</span>
-                        </span>
-                      )}
-                      <span className="text-amber-200">•</span>
-                      <span className="text-rose-600 font-semibold">{companion.relationshipGoal}</span>
-                    </div>
-                  )}
-
-                  {/* Bio snippet */}
-                  <p className="text-xs text-amber-900 line-clamp-2 leading-relaxed italic bg-amber-50/40 p-2.5 rounded-xl border border-amber-100/60 mb-3">
-                    "{companion.bio}"
-                  </p>
-
-                  {/* Passions & Hobbies */}
-                  <div className="space-y-1 mb-4">
-                    <div className="flex flex-wrap gap-1">
-                      {(companion.interests || []).slice(0, 4).map((interest) => {
-                        const isShared = sharedHobbies.includes(interest);
-                        return (
-                          <span
-                            key={interest}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${
-                              isShared
-                                ? "bg-emerald-100 border-emerald-300 text-emerald-950 font-bold"
-                                : "bg-amber-50/50 border-amber-100 text-amber-800"
-                            }`}
-                          >
-                            {isShared ? `★ ${interest}` : interest}
-                          </span>
-                        );
-                      })}
-                      {(companion.interests || []).length > 4 && (
-                        <span className="text-[10px] px-1.5 py-0.5 text-amber-600 font-semibold">
-                          +{(companion.interests || []).length - 4} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Action Buttons */}
-                <div className="pt-3 border-t border-amber-100/80 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMatch(companion);
-                      setActiveTab("conversations");
-                    }}
-                    className="flex-1 py-2 px-3 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
-                    <span>Connect & Chat</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMatch(companion);
-                      setActiveTab("storyroom");
-                    }}
-                    className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    title="Read & Create Story"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-blue-700" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSwipeIndex(idx);
-                      setViewMode("deck");
-                    }}
-                    className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    title="Focus in 3D Card Deck"
-                  >
-                    <Compass className="w-3.5 h-3.5 text-emerald-700" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       ) : (
-        /* ======================== 3D CARD DECK VIEW ======================== */
+        /* ======================== CARD DECK VIEW ======================== */
         <div className="space-y-4 w-full max-w-full min-w-0">
           {/* Top Quick Profile Switcher Strip (Browse like Grid Mode) */}
           <div className="bg-white border border-amber-200/90 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
@@ -937,16 +756,6 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 >
                   <span>Next</span>
                   <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setViewMode("grid")}
-                  className="ml-1 px-2.5 py-1 rounded-lg border border-amber-200 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-50 transition-all flex items-center gap-1 cursor-pointer"
-                  title="Switch to Browse Grid View"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="hidden md:inline">Grid Mode</span>
                 </button>
               </div>
             </div>

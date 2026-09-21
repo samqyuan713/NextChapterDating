@@ -715,7 +715,7 @@ export default function App() {
 
   // Active view tabs: 'gardens' (Browse matches), 'my_profile' (Edit personal bio), 'search' (Search partners), 'cafe', 'conversations', 'compass', 'storyroom'
   const [activeTab, setActiveTab] = useState<"gardens" | "my_profile" | "search" | "cafe" | "conversations" | "compass" | "storyroom">("gardens");
-  const [companionViewMode, setCompanionViewMode] = useState<"grid" | "deck">("grid");
+  const [companionViewMode, setCompanionViewMode] = useState<"grid" | "deck">("deck");
   const [isCompassExpanded, setIsCompassExpanded] = useState<boolean>(true);
   const [customHobbyInput, setCustomHobbyInput] = useState<string>("");
   const [hobbySaveNotice, setHobbySaveNotice] = useState<string | null>(null);
