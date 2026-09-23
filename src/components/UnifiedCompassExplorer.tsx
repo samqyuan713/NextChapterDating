@@ -765,14 +765,6 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   <ChevronRight className="w-5 h-5" />
                 </button>
 
-                {/* 3D Depth Card Stacks */}
-                {swipeIndex + 1 < deckCompanions.length && (
-                  <div className="absolute inset-x-2 sm:inset-x-4 top-2 h-full bg-white/70 border border-amber-100 rounded-3xl shadow-sm translate-y-3 scale-95 pointer-events-none z-0"></div>
-                )}
-                {swipeIndex + 2 < deckCompanions.length && (
-                  <div className="absolute inset-x-4 sm:inset-x-8 top-4 h-full bg-white/45 border border-amber-50 rounded-3xl shadow-xs translate-y-6 scale-90 pointer-events-none z-[-1]"></div>
-                )}
-
                 {/* Dignified Companion Showcase Card Container */}
                 <div className="bg-[#FAF8F5] border-2 border-amber-100/90 rounded-3xl p-4 sm:p-6 md:p-7 shadow-md relative overflow-hidden z-10 animate-fade-in space-y-4">
                   <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-600 via-amber-200 to-emerald-600"></div>
