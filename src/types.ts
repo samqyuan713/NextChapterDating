@@ -3,6 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export type MembershipTier = 'free' | 'club' | 'patron';
+
+export interface VoiceGreeting {
+  profileId: string;
+  transcript: string;
+  durationSeconds: number;
+  recordedDate?: string;
+  accent?: string;
+}
+
+export interface CuratedIntroduction {
+  companionId: string;
+  handpickedDate: string;
+  conciergeRationale: string;
+  suggestedRendezvous: string;
+  matchScore: number;
+  highlightThemes: string[];
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -26,6 +45,8 @@ export interface Profile {
   longitude?: number;
   distanceMiles?: number;
   distanceKm?: number;
+  voiceGreeting?: VoiceGreeting;
+  membershipTier?: MembershipTier;
 }
 
 export interface Message {

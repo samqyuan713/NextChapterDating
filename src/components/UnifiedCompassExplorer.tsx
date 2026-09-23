@@ -29,9 +29,15 @@ import {
   RotateCcw,
   CheckCircle,
   Briefcase,
-  ShieldCheck
+  ShieldCheck,
+  Crown,
+  Unlock,
+  Volume2
 } from "lucide-react";
-import { Profile, CompatibilityAnalysis } from "../types";
+import { Profile, CompatibilityAnalysis, MembershipTier } from "../types";
+import { WeekendConciergeCard } from "./WeekendConciergeCard";
+import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
+import { getCuratedIntroduction } from "../data/mockProfiles";
 
 export const HEIGHT_OPTIONS = Array.from({ length: 23 }, (_, i) => 58 + i); // 58 to 80 inches (4'10" to 6'8")
 
@@ -131,6 +137,10 @@ export interface UnifiedCompassExplorerProps {
   setViewMode?: (mode: "grid" | "deck") => void;
   hasActiveCompassFilters: boolean;
   COMPATIBILITY_QUIZ_QUESTIONS: any[];
+  membershipTier?: MembershipTier;
+  onOpenVault?: () => void;
+  onOpenSubscriptionModal?: () => void;
+  admirerCount?: number;
 }
 
 export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
@@ -192,9 +202,14 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
   viewMode,
   setViewMode,
   hasActiveCompassFilters,
-  COMPATIBILITY_QUIZ_QUESTIONS
+  COMPATIBILITY_QUIZ_QUESTIONS,
+  membershipTier = "free",
+  onOpenVault,
+  onOpenSubscriptionModal,
+  admirerCount = 3
 }) => {
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
+  const [showConciergeCard, setShowConciergeCard] = useState<boolean>(true);
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
 
   // Active filter count for badge
@@ -743,7 +758,51 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             );
 
             return (
-              <div className="relative w-full max-w-full min-w-0">
+              <div className="relative w-full max-w-full min-w-0 space-y-4">
+                {/* Salon Admirers Vault Notification Bar */}
+                {admirerCount > 0 && onOpenVault && (
+                  <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-amber-900 via-amber-950 to-stone-900 text-white px-4 sm:px-5 py-3 rounded-2xl shadow-sm flex-wrap">
+                    <div className="flex items-center gap-2.5">
+                      <span className="p-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                        <Heart className="w-4 h-4 fill-rose-400 text-rose-400" />
+                      </span>
+                      <div>
+                        <span className="font-serif font-bold text-xs sm:text-sm text-amber-100">
+                          {admirerCount} Mature Companions Expressed Interest in You
+                        </span>
+                        <span className="hidden sm:inline text-xs text-amber-300/80 ml-2">
+                          • Private Salon Vault
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onOpenVault}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-200 hover:bg-white text-amber-950 font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Unlock className="w-3.5 h-3.5 text-amber-800" />
+                      <span>Open Admirers Vault</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Weekend Concierge Introduction Digest Card */}
+                {showConciergeCard && deckCompanions.length > 0 && (
+                  <WeekendConciergeCard
+                    curatedIntro={getCuratedIntroduction(
+                      (deckCompanions.find((c) => c.id === "arthur") || deckCompanions[0]).id,
+                      (deckCompanions.find((c) => c.id === "arthur") || deckCompanions[0]).name
+                    )}
+                    companion={deckCompanions.find((c) => c.id === "arthur") || deckCompanions[0]}
+                    membershipTier={membershipTier}
+                    onUpgradeToPatron={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
+                    onConnect={(comp) => {
+                      setSelectedMatch(comp);
+                      setActiveTab("conversations");
+                    }}
+                  />
+                )}
+
                 {/* Side Arrow Navigation Buttons for Fast Browsing */}
                 <button
                   type="button"
@@ -916,6 +975,18 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                       "{currentCompanion.bio}"
                     </p>
                   </div>
+
+                  {/* AUTHENTIC VOICE GREETING SNIPPET */}
+                  {currentCompanion.voiceGreeting && (
+                    <VoiceGreetingPlayer
+                      greeting={currentCompanion.voiceGreeting}
+                      companionName={currentCompanion.name}
+                      gender={currentCompanion.gender}
+                      accent={currentCompanion.voiceGreeting.accent}
+                      isUnlocked={membershipTier !== "free" || swipeIndex < 3}
+                      onLockedClick={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
+                    />
+                  )}
 
                   {/* KEY BIO-DATA METRICS TILES */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-left">

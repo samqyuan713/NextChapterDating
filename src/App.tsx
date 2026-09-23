@@ -51,11 +51,17 @@ import {
   LocateFixed,
   Radio,
   Navigation,
-  ChevronDown
+  ChevronDown,
+  Crown,
+  Unlock,
+  Volume2
 } from "lucide-react";
-import { Profile, Message, Conversation, CompatibilityAnalysis } from "./types";
+import { Profile, Message, Conversation, CompatibilityAnalysis, MembershipTier } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
 import { UnifiedCompassExplorer } from "./components/UnifiedCompassExplorer";
+import { AdmirersVaultModal } from "./components/AdmirersVaultModal";
+import { SubscriptionTiersModal } from "./components/SubscriptionTiersModal";
+import { audioVoiceService } from "./lib/audioService";
 import { auth, googleAuthProvider } from "./lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
@@ -860,11 +866,31 @@ export default function App() {
     setIsCompassExpanded(true);
   };
 
-  // Premium Subscription & Save states
+  // Premium Subscription & Tier States ('free' | 'club' | 'patron')
+  const [membershipTier, setMembershipTier] = useState<MembershipTier>(() => {
+    if (typeof localStorage !== "undefined") {
+      const saved = localStorage.getItem("nextchapter_membership_tier");
+      if (saved === "patron" || saved === "club" || saved === "free") return saved as MembershipTier;
+    }
+    return "free";
+  });
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [subscriptionPromptReason, setSubscriptionPromptReason] = useState<string | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
+
+  // Salon Admirers Vault State (Companions who expressed interest in user's profile)
+  const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [admirers, setAdmirers] = useState<Profile[]>(() => {
+    return INITIAL_MATCH_PROFILES.filter((p) => ["evelyn", "arthur", "clara", "frank"].includes(p.id));
+  });
+
+  // Keep membershipTier and isSubscribed synchronized
+  useEffect(() => {
+    if (userProfile?.isSubscribed && membershipTier === "free") {
+      setMembershipTier("club");
+    }
+  }, [userProfile?.isSubscribed]);
 
   // Listener to open subscription modal from other child components/cards
   useEffect(() => {
@@ -877,28 +903,60 @@ export default function App() {
     };
   }, []);
 
-  const handleUpgradeSubscription = async () => {
-    if (!idToken) return;
-    try {
-      setIsUpgrading(true);
-      const { ok, data } = await safeJsonFetch("/api/subscribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ isSubscribed: true })
-      });
-      if (ok && data && data.profile) {
-        setUserProfile((prev: any) => prev ? ({ ...prev, isSubscribed: true }) : null);
-        setShowSubscriptionModal(false);
-        setSubscriptionPromptReason(null);
-      }
-    } catch (err) {
-      console.warn("Failed to upgrade subscription:", err);
-    } finally {
-      setIsUpgrading(false);
+  const handleSelectTier = async (newTier: MembershipTier) => {
+    setIsUpgrading(true);
+    setMembershipTier(newTier);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("nextchapter_membership_tier", newTier);
     }
+
+    const isSub = newTier !== "free";
+    setUserProfile((prev: any) => prev ? ({ ...prev, isSubscribed: isSub, membershipTier: newTier }) : null);
+
+    if (idToken) {
+      try {
+        await safeJsonFetch("/api/subscribe", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ isSubscribed: isSub, membershipTier: newTier })
+        });
+      } catch (err) {
+        console.warn("Failed to persist tier upgrade:", err);
+      }
+    }
+    setIsUpgrading(false);
+    setShowSubscriptionModal(false);
+    setSubscriptionPromptReason(null);
+  };
+
+  const handleMatchBackFromVault = (companion: Profile) => {
+    setIsVaultOpen(false);
+    setSelectedMatch(companion);
+    setMatchedCompanion(companion);
+    setShowMatchModal(true);
+
+    // Warm introductory icebreaker
+    const matchId = companion.id;
+    if (!conversations[matchId] || conversations[matchId].length === 0) {
+      const introMsg: Message = {
+        id: Date.now().toString(),
+        senderId: "user",
+        text: `Hello ${companion.name}, thank you for expressing interest in my profile! I was deeply drawn to your chapter theme "${companion.chapterTheme}" and would love to start a dialogue.`,
+        timestamp: new Date().toISOString()
+      };
+      setConversations((prev) => ({
+        ...prev,
+        [matchId]: [introMsg]
+      }));
+    }
+    setActiveTab("conversations");
+  };
+
+  const handleUpgradeSubscription = async () => {
+    await handleSelectTier("club");
   };
 
   // 1. Community Cafe States
@@ -2359,18 +2417,48 @@ export default function App() {
               </nav>
 
               <div className="flex items-center gap-1.5 sm:gap-2 sm:pl-3 sm:border-l sm:border-amber-100 shrink-0">
-                {userProfile?.isSubscribed ? (
-                  <span className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-amber-950 text-amber-200 border border-amber-800 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xs">
-                    <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-                    <span>👑 Premium</span>
+                {/* Salon Admirers Vault Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsVaultOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-amber-100 via-rose-50 to-rose-100 hover:from-amber-200 hover:to-rose-200 text-amber-950 rounded-full text-[11px] sm:text-xs font-bold border border-rose-200/90 shadow-2xs transition-all cursor-pointer shrink-0 active:scale-95"
+                  title="Salon Admirers Vault: Companions who liked your profile"
+                >
+                  <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500 shrink-0" />
+                  <span className="hidden sm:inline">Vault</span>
+                  <span className="bg-rose-600 text-white rounded-full px-1.5 py-0.2 text-[9px] font-bold">
+                    {admirers.length}
                   </span>
+                </button>
+
+                {/* Membership Tier Status / Upgrade Button */}
+                {membershipTier === "patron" ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-950 text-amber-200 border border-amber-800 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xs cursor-pointer hover:bg-stone-900 transition-all shrink-0"
+                    title="NextChapter Concierge Patron Active"
+                  >
+                    <Crown className="w-3 h-3 text-amber-400 fill-amber-300 shrink-0" />
+                    <span>👑 Patron</span>
+                  </button>
+                ) : membershipTier === "club" ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950 text-emerald-100 border border-emerald-800 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xs cursor-pointer hover:bg-stone-900 transition-all shrink-0"
+                    title="NextChapter Club Member Active"
+                  >
+                    <Sparkles className="w-3 h-3 text-emerald-400 fill-emerald-300 shrink-0" />
+                    <span>Club Member</span>
+                  </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setShowSubscriptionModal(true)}
                     className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-full text-[10px] font-bold uppercase tracking-wider shadow-xs hover:from-amber-600 hover:to-amber-700 cursor-pointer transition-all shrink-0 border border-amber-600"
                   >
-                    <Sparkles className="w-3 h-3 text-amber-200 fill-amber-200 shrink-0" />
+                    <Crown className="w-3 h-3 text-amber-200 fill-amber-200 shrink-0" />
                     <span>Upgrade</span>
                   </button>
                 )}
@@ -2807,60 +2895,78 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Membership Tier Settings */}
+                {/* Personal Voice Greeting Studio */}
                 <div className="mt-8 border-t border-amber-100 pt-6">
-                  <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-500 fill-amber-200 animate-pulse" />
-                    <span>Membership Settings</span>
-                  </h3>
-                  <div className="p-5 rounded-2xl border border-amber-200/60 bg-[#FDFCFB] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1.5">
+                      <Volume2 className="w-4 h-4 text-amber-700" />
+                      <span>My Voice Greeting • Voice of the Chapter</span>
+                    </h3>
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold">
+                      Audio Active (0:15)
+                    </span>
+                  </div>
+                  <div className="p-4 sm:p-5 rounded-2xl border border-amber-200/80 bg-amber-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${
-                          userProfile.isSubscribed
-                            ? "bg-amber-950 text-amber-200 border-amber-800"
-                            : "bg-amber-100 text-amber-800 border-amber-200"
-                        }`}>
-                          {userProfile.isSubscribed ? "👑 Premium Plan Active" : "Standard Free Plan"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                        {userProfile.isSubscribed
-                          ? "You have full unlocked access to exchange phone numbers, emails, and direct social handles in your conversation center!"
-                          : "Upgrade to exchange Facebook handles, email addresses, and phone numbers directly in chat messages."}
+                      <p className="text-xs text-amber-950 font-serif italic">
+                        "{userProfile.voiceGreeting?.transcript || `Hello, I'm ${userProfile.name}. I believe the best chapters of life are ahead of us, filled with quiet walks, deep conversation, and genuine warmth.`}"
+                      </p>
+                      <p className="text-[10px] text-amber-750 font-medium">
+                        Other companions will hear this authentic audio note when viewing your profile card in the card deck.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (userProfile.isSubscribed) {
-                          // Allow quick cancel for evaluation/testing convenience
-                          try {
-                            const { ok, data } = await safeJsonFetch("/api/subscribe", {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${idToken}`
-                              },
-                              body: JSON.stringify({ isSubscribed: false })
-                            });
-                            if (ok && data && data.profile) {
-                              setUserProfile((prev: any) => prev ? ({ ...prev, isSubscribed: false }) : null);
-                            }
-                          } catch (err) {
-                            console.warn("Failed to cancel subscription:", err);
-                          }
-                        } else {
-                          setShowSubscriptionModal(true);
-                        }
+                      onClick={() => {
+                        const transcript = userProfile.voiceGreeting?.transcript || `Hello, I'm ${userProfile.name}. I believe the best chapters of life are ahead of us, filled with quiet walks, deep conversation, and genuine warmth.`;
+                        audioVoiceService.playGreeting("my-profile", transcript, 15, userProfile.gender || "Neutral");
                       }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0 ${
-                        userProfile.isSubscribed
-                          ? "bg-amber-150 hover:bg-rose-50 text-amber-800 hover:text-rose-700 border border-amber-200"
-                          : "bg-amber-950 hover:bg-amber-900 text-white"
-                      }`}
+                      className="px-3.5 py-2 rounded-xl bg-amber-950 hover:bg-amber-900 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0 flex items-center gap-1.5"
                     >
-                      {userProfile.isSubscribed ? "Downgrade to Free" : "Upgrade to Premium"}
+                      <Volume2 className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Preview My Audio Note</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Membership Tier & Concierge Settings */}
+                <div className="mt-8 border-t border-amber-100 pt-6">
+                  <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <Crown className="w-4 h-4 text-amber-600 fill-amber-300" />
+                    <span>Salon Membership & Concierge Tier</span>
+                  </h3>
+                  <div className="p-5 rounded-2xl border-2 border-amber-200/80 bg-[#FDFCFB] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${
+                          membershipTier === "patron"
+                            ? "bg-amber-950 text-amber-200 border-amber-800"
+                            : membershipTier === "club"
+                            ? "bg-emerald-950 text-emerald-200 border-emerald-800"
+                            : "bg-amber-100 text-amber-800 border-amber-200"
+                        }`}>
+                          {membershipTier === "patron"
+                            ? "👑 Concierge Patron Active ($49.99/mo)"
+                            : membershipTier === "club"
+                            ? "✨ Club Member Active ($19.99/mo)"
+                            : "Guest of the Salon (Free Plan)"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                        {membershipTier === "patron"
+                          ? "You have full VIP Concierge access: handpicked Friday introductions, date rendezvous planning, and unblurred Admirers Vault."
+                          : membershipTier === "club"
+                          ? "You have full Salon Club access: unlimited Admirers Vault unblurring, unlimited voice notes, and contact exchange."
+                          : "Explore card deck, preview 1 admirer in Salon Vault, and sample companion voice greetings."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSubscriptionModal(true)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0 bg-amber-950 hover:bg-amber-900 text-white flex items-center gap-1.5"
+                    >
+                      <Crown className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Manage / Switch Tiers</span>
                     </button>
                   </div>
                 </div>
@@ -3434,6 +3540,10 @@ export default function App() {
             setViewMode={setCompanionViewMode}
             hasActiveCompassFilters={hasActiveCompassFilters}
             COMPATIBILITY_QUIZ_QUESTIONS={COMPATIBILITY_QUIZ_QUESTIONS}
+            membershipTier={membershipTier}
+            onOpenVault={() => setIsVaultOpen(true)}
+            onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+            admirerCount={admirers.length}
           />
         )}
       </main>
@@ -3454,87 +3564,35 @@ export default function App() {
         </footer>
       </div>
 
-      {/* Subscription Upgrade Modal Overlay */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-amber-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white border border-amber-100 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 relative animate-scale-up">
-            <button
-              onClick={() => {
-                setShowSubscriptionModal(false);
-                setSubscriptionPromptReason(null);
-              }}
-              className="absolute top-4 right-4 text-amber-900 hover:text-amber-700 font-bold text-sm bg-amber-50 hover:bg-amber-100/80 w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer"
-            >
-              ✕
-            </button>
-            
-            <div className="text-center space-y-3">
-              <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 mx-auto">
-                <Sparkles className="w-7 h-7 text-amber-500 fill-amber-200 animate-pulse" />
-              </div>
-              <h3 className="font-serif text-2xl font-bold text-amber-950">Next Chapter Premium</h3>
-              <p className="text-xs text-amber-700/90 leading-relaxed font-medium">
-                Unlock unrestricted connection dialogues, direct contact details exchange, and advanced compatibility matchmaking.
-              </p>
-            </div>
+      {/* Salon Admirers Vault Modal */}
+      <AdmirersVaultModal
+        isOpen={isVaultOpen}
+        onClose={() => setIsVaultOpen(false)}
+        admirers={admirers}
+        userProfile={userProfile}
+        membershipTier={membershipTier}
+        onUpgradeToClub={() => {
+          setIsVaultOpen(false);
+          setShowSubscriptionModal(true);
+        }}
+        onUpgradeToPatron={() => {
+          setIsVaultOpen(false);
+          setShowSubscriptionModal(true);
+        }}
+        onMatchBack={handleMatchBackFromVault}
+      />
 
-            {subscriptionPromptReason && (
-              <div className="bg-rose-50/70 border border-rose-100 rounded-2xl p-4 text-xs text-rose-900 font-semibold leading-relaxed">
-                {subscriptionPromptReason}
-              </div>
-            )}
-
-            <div className="bg-[#FCFAF7] border border-amber-100 p-4 rounded-2xl space-y-3">
-              <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">Premium Benefits Included:</h4>
-              <ul className="space-y-2 text-xs text-amber-800">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Exchange emails, phone numbers, and social handles freely</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Full access to Vinyl Melody Generators & lounges</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>AI-guided story refinement with complete dignity</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={handleUpgradeSubscription}
-                disabled={isUpgrading}
-                className="w-full py-3 bg-amber-950 hover:bg-amber-900 disabled:opacity-50 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 text-xs"
-              >
-                {isUpgrading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Processing Secure Upgrade...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                    <span>Subscribe - $9.99/mo (Instant Setup)</span>
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSubscriptionModal(false);
-                  setSubscriptionPromptReason(null);
-                }}
-                className="w-full py-2.5 text-xs text-amber-700 font-semibold hover:text-amber-950 transition-all cursor-pointer text-center"
-              >
-                Maybe Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Subscription & Concierge Tiers Modal */}
+      <SubscriptionTiersModal
+        isOpen={showSubscriptionModal}
+        onClose={() => {
+          setShowSubscriptionModal(false);
+          setSubscriptionPromptReason(null);
+        }}
+        currentTier={membershipTier}
+        onSelectTier={handleSelectTier}
+        promptReason={subscriptionPromptReason}
+      />
 
       {/* Match / Connection Celebration Modal */}
       {showMatchModal && matchedCompanion && (

@@ -3,10 +3,158 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Profile } from "../types";
+import { Profile, VoiceGreeting, CuratedIntroduction } from "../types";
 import { calculateDistance, POPULAR_CITY_PRESETS } from "../lib/locationService";
 
-export const INITIAL_MATCH_PROFILES: Profile[] = [
+export const COMPANION_VOICE_GREETINGS: Record<string, VoiceGreeting> = {
+  meiling: {
+    profileId: "meiling",
+    durationSeconds: 16,
+    transcript: "Warm greetings! Mei-Ling here. My greenhouse is blooming with sweet orchids, and there's fresh sourdough on the counter. I'm hoping to share gentle laughs, tea, and morning walks with someone kind.",
+    accent: "Gentle Singapore English"
+  },
+  arthur: {
+    profileId: "arthur",
+    durationSeconds: 18,
+    transcript: "Hello there. Arthur here. If you enjoy quiet conversations on history, tending heirloom tomatoes, or savoring an afternoon Earl Grey, I would be delighted to make your acquaintance.",
+    accent: "Warm Midwestern Academic"
+  },
+  evelyn: {
+    profileId: "evelyn",
+    durationSeconds: 17,
+    transcript: "Hi, I'm Evelyn! To me, this chapter of life is an open canvas with vibrant watercolors. Let's take a coastal drive, wander an art gallery, and celebrate the small joys together.",
+    accent: "Bright Coastal Californian"
+  },
+  frank: {
+    profileId: "frank",
+    durationSeconds: 18,
+    transcript: "Ahoy there, Frank here from Savannah. After a career in the cockpit, I love the slow rhythm of the river, classic jazz, and good barbecue. Looking for a warm first mate for this season.",
+    accent: "Southern Maritime Drawl"
+  },
+  miriam: {
+    profileId: "miriam",
+    durationSeconds: 16,
+    transcript: "Hello! Miriam here. When I'm not directing local plays, I love cozy bookshops, baking berry tarts, and sharing heartfelt conversation. Looking forward to hearing your story.",
+    accent: "Expressive Pacific Northwest"
+  },
+  diana: {
+    profileId: "diana",
+    durationSeconds: 17,
+    transcript: "Good day. Diana here. The crisp mountain air and birdwatching keep my soul steady. I'm looking for an outdoor companion who cherishes quiet mornings and campfire acoustic tunes.",
+    accent: "Calm Colorado Naturalist"
+  },
+  clara: {
+    profileId: "clara",
+    durationSeconds: 15,
+    transcript: "Hello darling, Clara here from Charleston. Life is sweet when shared with someone gentle who appreciates porch breezes, magnolia blooms, and heartfelt melodies.",
+    accent: "Gracious Southern Belle"
+  },
+  eleanor: {
+    profileId: "eleanor",
+    durationSeconds: 17,
+    transcript: "Greetings, Eleanor here. Life in the high desert of Santa Fe has taught me the elegance of quiet skies and adobe sunsets. I welcome someone sincere to share music and dinner.",
+    accent: "Refined Southwestern"
+  },
+  grace: {
+    profileId: "grace",
+    durationSeconds: 16,
+    transcript: "Warm hello from Sedona. I spend my afternoons painting red rock vistas and playing cello. I value presence, open-hearted listening, and laughter under star-filled skies.",
+    accent: "Gentle Arizona Artist"
+  },
+  takashi: {
+    profileId: "takashi",
+    durationSeconds: 17,
+    transcript: "Konnichiwa, Takashi here. In my Kyoto pottery studio, every piece embraces quiet imperfection. I hope to find a patient companion to share garden tea and peaceful evenings.",
+    accent: "Reflective Japanese Art Master"
+  },
+  sanjay: {
+    profileId: "sanjay",
+    durationSeconds: 18,
+    transcript: "Namaste, Sanjay here. Stillness, ancient temple architecture, and warm cardamom chai bring me joy. I look forward to meaningful dialogues and discovering new horizons together.",
+    accent: "Warm Indian Scholar"
+  },
+  leo: {
+    profileId: "leo",
+    durationSeconds: 16,
+    transcript: "Ciao, Leo here. Between stone sculpture and olive groves, I believe passion only deepens with age. Let's share a glass of Chianti and talk about the things that truly matter.",
+    accent: "Warm Tuscan Accent"
+  },
+  elena: {
+    profileId: "elena",
+    durationSeconds: 17,
+    transcript: "Hola, Elena here. Costa Rica's cloud forests taught me the art of slowing down. Looking for a companion who appreciates early morning coffee and the symphony of rain.",
+    accent: "Gentle Costa Rican"
+  },
+  marcus: {
+    profileId: "marcus",
+    durationSeconds: 18,
+    transcript: "Good day, Marcus here from the Scottish Highlands. The heather hills and single malt whiskies are best enjoyed with someone honest, humorous, and open-hearted.",
+    accent: "Warm Scottish Brogue"
+  },
+  liwei: {
+    profileId: "liwei",
+    durationSeconds: 17,
+    transcript: "Hello, Li-Wei here. Mountain mist, vintage pu-erh tea, and classical calligraphy teach me stillness. I hope to meet someone who values gentle wisdom and quiet companionship.",
+    accent: "Reflective Taiwanese"
+  },
+  ananya: {
+    profileId: "ananya",
+    durationSeconds: 16,
+    transcript: "Sawasdee, Ananya here from Bangkok. Weaving fine silk taught me patience and gratitude. I would love to cook a fragrant meal and share sincere smiles with a kind partner.",
+    accent: "Gracious Thai"
+  }
+};
+
+export const CURATED_CONCIERGE_PROFILES: Record<string, CuratedIntroduction> = {
+  arthur: {
+    companionId: "arthur",
+    handpickedDate: "This Weekend",
+    matchScore: 96,
+    conciergeRationale: "Arthur and you both cherish quiet intellectual depth, value gentle patience, and appreciate organic gardening. At 68, he shares your desire for heartfelt conversation over Earl Grey rather than hasty small talk.",
+    suggestedRendezvous: "A calm Sunday morning stroll through the Chicago Botanic Gardens, followed by warm Earl Grey tea at The English Room.",
+    highlightThemes: ["Organic Gardening", "Intellectual Leisure", "Quiet Walks", "Earl Grey Tea"]
+  },
+  evelyn: {
+    companionId: "evelyn",
+    handpickedDate: "This Weekend",
+    matchScore: 94,
+    conciergeRationale: "Evelyn's artistic vibrancy and passion for sourdough baking and coastal walks aligns seamlessly with your love for cultural exploration and creative pursuits in this rich life chapter.",
+    suggestedRendezvous: "A Saturday afternoon visit to a quiet watercolor exhibit, followed by an oceanfront walk and artisan bakery treats.",
+    highlightThemes: ["Seaside Walks", "Creative Expression", "Independent Film", "Sourdough Baking"]
+  },
+  meiling: {
+    companionId: "meiling",
+    handpickedDate: "This Weekend",
+    matchScore: 93,
+    conciergeRationale: "Mei-Ling's warm hospitality, orchid botanist expertise, and culinary mastery make her an ideal partner for peaceful morning Tai Chi and weekend farmers' market discoveries.",
+    suggestedRendezvous: "A visit to the greenhouse orchid pavilion, followed by sampling fresh artisan cardamom pastries at a sunny courtyard café.",
+    highlightThemes: ["Horticulture", "Gourmet Dessert Baking", "Morning Tai Chi", "Vibrant Hospitality"]
+  },
+  frank: {
+    companionId: "frank",
+    handpickedDate: "This Weekend",
+    matchScore: 91,
+    conciergeRationale: "Frank's grounding maritime humor, deep appreciation for live jazz, and honorable nature offer steady, comforting companionship for sunset dinners.",
+    suggestedRendezvous: "An evening stroll along the river marina with live jazz drifting from the patio, followed by smoked artisanal seafood.",
+    highlightThemes: ["Sailing & Maritime", "Live Jazz", "Simple Rhythms", "Honorable Warmth"]
+  }
+};
+
+export function getCuratedIntroduction(companionId: string, companionName: string): CuratedIntroduction {
+  if (CURATED_CONCIERGE_PROFILES[companionId]) {
+    return CURATED_CONCIERGE_PROFILES[companionId];
+  }
+  return {
+    companionId,
+    handpickedDate: "This Weekend",
+    matchScore: 92,
+    conciergeRationale: `Selected by NextChapter Concierge for shared life values, calm maturity, and resonant lifestyle preferences with ${companionName}.`,
+    suggestedRendezvous: `A leisurely afternoon coffee or tea at a scenic, quiet local café, followed by a light garden stroll.`,
+    highlightThemes: ["Shared Life Values", "Mellow Conversation", "Local Proximity"]
+  };
+}
+
+export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
   {
     id: "meiling",
     name: "Mei-Ling",
@@ -328,6 +476,16 @@ export const INITIAL_MATCH_PROFILES: Profile[] = [
     longitude: 100.5018
   }
 ];
+
+export const INITIAL_MATCH_PROFILES: Profile[] = RAW_INITIAL_MATCH_PROFILES.map((p) => ({
+  ...p,
+  voiceGreeting: COMPANION_VOICE_GREETINGS[p.id] || {
+    profileId: p.id,
+    durationSeconds: 16,
+    transcript: `Hello there, I'm ${p.name}. In this chapter of my life, I treasure simple warmth, good company, and heartfelt conversation. I hope to hear your story soon.`,
+    accent: "Warm & Reflective"
+  }
+}));
 
 /**
  * Augments list of profiles with calculated distances based on the user's GPS coordinates.
