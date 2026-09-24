@@ -6,18 +6,23 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 import { db, companions, users, messages, compatibility } from "./src/db/index.ts";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
+import { requireAuth, type AuthRequest } from "./src/middleware/auth.ts";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const args = process.argv.slice(2);
+const portIndex = args.indexOf("--port");
+const argPort = portIndex !== -1 && args[portIndex + 1] ? Number(args[portIndex + 1]) : null;
+// Cloud Run sets PORT=8080 for external Nginx routing; our internal Node/Vite app must bind to 3000 (DEFAULT_APP_PORT)
+const PORT = argPort || Number(process.env.DEFAULT_APP_PORT) || 3000;
 
 // Enable CORS for mobile native apps (Capacitor) and cross-origin web requests
 app.use(cors({
@@ -1264,18 +1269,22 @@ async function startServer() {
   // Static assets from public folder
   app.use(express.static(path.join(process.cwd(), "public")));
 
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production";
+  const distPath = path.join(process.cwd(), "dist");
+  const distExists = fs.existsSync(path.join(distPath, "index.html"));
+
+  if (isProduction && distExists) {
+    app.use(express.static(distPath));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api/")) return next();
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {

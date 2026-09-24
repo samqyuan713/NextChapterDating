@@ -91,7 +91,7 @@ export async function saveProfileToFirestore(
 
     return { success: true, updatedAt: nowIso, docId };
   } catch (err: any) {
-    console.error("[Firestore] saveProfileToFirestore error:", err);
+    console.warn("[Firestore] saveProfileToFirestore notice:", err?.message || err);
     return { success: false, error: err?.message || "Failed to save profile to Firestore" };
   }
 }
@@ -105,18 +105,37 @@ export async function fetchProfileFromFirestore(
   try {
     const docId = getProfileDocId(emailOrUid);
     const userDocRef = doc(firestore, 'user_profiles', docId);
-    let docSnap = await getDoc(userDocRef);
+
+    let docSnap: any = null;
+    try {
+      docSnap = await Promise.race([
+        getDoc(userDocRef),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Network latency timeout (8s)')), 8000)
+        )
+      ]);
+    } catch (fetchErr: any) {
+      console.warn("[Firestore] fetchProfileFromFirestore notice:", fetchErr?.message || fetchErr);
+      return { success: false, error: fetchErr?.message || "Network timeout fetching profile from Firestore" };
+    }
 
     // Fallback: If not found under normalized key, check legacy sandbox_uid_ prefix
     if (!docSnap.exists()) {
       const legacyDocId = `sandbox_uid_${docId}`;
       const legacyDocRef = doc(firestore, 'user_profiles', legacyDocId);
-      const legacySnap = await getDoc(legacyDocRef);
-      if (legacySnap.exists()) {
-        docSnap = legacySnap;
-        // Migrate to clean normalized key in background
-        const data = legacySnap.data();
-        setDoc(userDocRef, data, { merge: true }).catch(() => {});
+      try {
+        const legacyResult = await Promise.race([
+          getDoc(legacyDocRef).then(snap => snap),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+        ]);
+        if (legacyResult && legacyResult.exists()) {
+          docSnap = legacyResult;
+          // Migrate to clean normalized key in background
+          const data = legacyResult.data();
+          setDoc(userDocRef, data, { merge: true }).catch(() => {});
+        }
+      } catch {
+        // legacy check ignored
       }
     }
 
@@ -141,7 +160,7 @@ export async function fetchProfileFromFirestore(
       return { success: false, error: "No profile document found in Firestore" };
     }
   } catch (err: any) {
-    console.error("[Firestore] fetchProfileFromFirestore error:", err);
+    console.warn("[Firestore] fetchProfileFromFirestore network notice:", err?.message || err);
     return { success: false, error: err?.message || "Failed to fetch profile from Firestore" };
   }
 }

@@ -9,3 +9,8 @@ coverage/
 .idea/
 *.apk
 .gradle/
+bun.lock
+android/build/
+android/app/build/
+android/app/src/main/assets/public/
+android/.gradle/

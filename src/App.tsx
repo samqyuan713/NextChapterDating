@@ -54,13 +54,16 @@ import {
   ChevronDown,
   Crown,
   Unlock,
-  Volume2
+  Volume2,
+  Eye,
+  ArrowLeft
 } from "lucide-react";
-import { Profile, Message, Conversation, CompatibilityAnalysis, MembershipTier } from "./types";
+import { Profile, Message, Conversation, CompatibilityAnalysis, MembershipTier, VoiceGreeting } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
 import { UnifiedCompassExplorer } from "./components/UnifiedCompassExplorer";
 import { AdmirersVaultModal } from "./components/AdmirersVaultModal";
 import { SubscriptionTiersModal } from "./components/SubscriptionTiersModal";
+import { UserProfilePreview } from "./components/UserProfilePreview";
 import { audioVoiceService } from "./lib/audioService";
 import { auth, googleAuthProvider } from "./lib/firebase";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
@@ -243,6 +246,9 @@ export default function App() {
     gpsEnabled?: boolean;
     searchRadiusMiles?: number;
     updatedAt?: string;
+    voiceGreeting?: VoiceGreeting;
+    photoUrl?: string;
+    gender?: string;
   }>({
     name: "Sam",
     age: 50,
@@ -310,42 +316,65 @@ export default function App() {
 
   // Listen to auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setFbUser(user);
-        if (user.email) {
-          localStorage.setItem("saved_user_email", user.email.toLowerCase().trim());
-        }
-        try {
-          const token = await user.getIdToken();
-          setIdToken(token);
-          await fetchUserProfile(token, user.email || undefined);
-        } catch (err) {
-          console.error("Auth state synchronization error:", err);
-        }
-      } else {
-        const savedEmail = localStorage.getItem("saved_user_email");
-        if (savedEmail && savedEmail.trim() !== "") {
-          const emailTrimmed = savedEmail.toLowerCase().trim();
-          const token = `sandbox-token-${emailTrimmed}`;
-          const guestUser = {
-            uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
-            email: emailTrimmed,
-            displayName: emailTrimmed.split("@")[0]
-          };
-          setFbUser(guestUser as any);
-          setIdToken(token);
-          await fetchUserProfile(token, emailTrimmed);
-        } else {
-          setFbUser(null);
-          setIdToken(null);
-          setUserProfile(null);
-          setHasOnboarded(false);
-        }
+    let didResolve = false;
+    const safetyTimer = setTimeout(() => {
+      if (!didResolve) {
+        console.warn("Auth state sync safety timer expired (2000ms) - unblocking UI.");
+        setLoadingAuth(false);
       }
-      setLoadingAuth(false);
+    }, 2000);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      didResolve = true;
+      clearTimeout(safetyTimer);
+      try {
+        if (user) {
+          setFbUser(user);
+          if (user.email) {
+            localStorage.setItem("saved_user_email", user.email.toLowerCase().trim());
+          }
+          try {
+            const token = await user.getIdToken();
+            setIdToken(token);
+            await fetchUserProfile(token, user.email || undefined);
+          } catch (err) {
+            console.error("Auth state synchronization error:", err);
+          }
+        } else {
+          const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
+          if (savedEmail && savedEmail.trim() !== "") {
+            const emailTrimmed = savedEmail.toLowerCase().trim();
+            const token = `sandbox-token-${emailTrimmed}`;
+            const guestUser = {
+              uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
+              email: emailTrimmed,
+              displayName: emailTrimmed.split("@")[0]
+            };
+            setFbUser(guestUser as any);
+            setIdToken(token);
+            try {
+              await fetchUserProfile(token, emailTrimmed);
+            } catch (guestErr) {
+              console.warn("Error restoring guest profile:", guestErr);
+            }
+          } else {
+            setFbUser(null);
+            setIdToken(null);
+            setUserProfile(null);
+            setHasOnboarded(false);
+          }
+        }
+      } catch (globalAuthErr) {
+        console.warn("Global auth handler error:", globalAuthErr);
+      } finally {
+        setLoadingAuth(false);
+      }
     });
-    return unsubscribe;
+
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   const fetchUserProfile = async (
@@ -721,6 +750,8 @@ export default function App() {
 
   // Active view tabs: 'gardens' (Browse matches), 'my_profile' (Edit personal bio), 'search' (Search partners), 'cafe', 'conversations', 'compass', 'storyroom'
   const [activeTab, setActiveTab] = useState<"gardens" | "my_profile" | "search" | "cafe" | "conversations" | "compass" | "storyroom">("gardens");
+  // Profile view mode: 'preview' (default dignified preview) or 'edit' (form mode)
+  const [profileViewMode, setProfileViewMode] = useState<"preview" | "edit">("preview");
   const [companionViewMode, setCompanionViewMode] = useState<"grid" | "deck">("deck");
   const [isCompassExpanded, setIsCompassExpanded] = useState<boolean>(true);
   const [customHobbyInput, setCustomHobbyInput] = useState<string>("");
@@ -1502,14 +1533,26 @@ export default function App() {
 
   // Toggle user interests checkboxes with immediate persistence
   const handleToggleInterest = (interest: string) => {
-    if (!userProfile) return;
-    const curInterests = Array.isArray(userProfile.interests) ? userProfile.interests : [];
+    const baseProfile = userProfile || {
+      name: fbUser?.displayName || "Sam",
+      age: 50,
+      location: "Singapore",
+      interests: ["Classical Music", "Museum Strolls", "Organic Gardening"],
+      bio: "A thoughtful companion who appreciates quiet morning walks, art galleries, and heartwarming conversation over Earl Grey.",
+      relationshipGoal: "Companionship & Shared Outings",
+      isSubscribed: false,
+      latitude: 1.3521,
+      longitude: 103.8198,
+      gpsEnabled: false,
+      searchRadiusMiles: 50
+    };
+    const curInterests = Array.isArray(baseProfile.interests) ? baseProfile.interests : [];
     const exists = curInterests.includes(interest);
     const nextInterests = exists
       ? curInterests.filter((i: string) => i !== interest)
       : [...curInterests, interest];
     const updated = {
-      ...userProfile,
+      ...baseProfile,
       interests: nextInterests,
       updatedAt: new Date().toISOString()
     };
@@ -1969,7 +2012,7 @@ export default function App() {
   const currentMatchCompatibilityReport = selectedMatch ? compatibilityReports[selectedMatch.id] : null;
   const currentMatchQuizAnswers = selectedMatch ? (quizAnswers[selectedMatch.id] || {}) : {};
 
-  if (loadingAuth || (fbUser && !userProfile)) {
+  if (loadingAuth) {
     return (
       <div id="loading-screen" className="min-h-screen bg-[#FBF9F6] text-amber-950 font-sans flex flex-col justify-center items-center">
         <Loader2 className="w-10 h-10 animate-spin text-amber-700" />
@@ -2142,8 +2185,8 @@ export default function App() {
                     <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5">First / Display Name</label>
                     <input
                       type="text"
-                      value={userProfile.name}
-                      onChange={(e) => setUserProfile({ ...userProfile, name: e.target.value })}
+                      value={userProfile?.name ?? ""}
+                      onChange={(e) => setUserProfile((prev: any) => ({ ...(prev || {}), name: e.target.value }))}
                       placeholder="e.g. Samuel"
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     />
@@ -2154,8 +2197,8 @@ export default function App() {
                       <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5">Age</label>
                       <input
                         type="number"
-                        value={userProfile.age || ""}
-                        onChange={(e) => setUserProfile({ ...userProfile, age: Number(e.target.value) })}
+                        value={userProfile?.age || ""}
+                        onChange={(e) => setUserProfile((prev: any) => ({ ...(prev || {}), age: Number(e.target.value) }))}
                         placeholder="e.g. 64"
                         className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                       />
@@ -2164,8 +2207,8 @@ export default function App() {
                       <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5">Location</label>
                       <input
                         type="text"
-                        value={userProfile.location}
-                        onChange={(e) => setUserProfile({ ...userProfile, location: e.target.value })}
+                        value={userProfile?.location ?? ""}
+                        onChange={(e) => setUserProfile((prev: any) => ({ ...(prev || {}), location: e.target.value }))}
                         placeholder="e.g. Singapore, Kuala Lumpur, Tokyo"
                         className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                       />
@@ -2175,8 +2218,8 @@ export default function App() {
                   <div>
                     <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5">Relationship Goal</label>
                     <select
-                      value={userProfile.relationshipGoal}
-                      onChange={(e) => setUserProfile({ ...userProfile, relationshipGoal: e.target.value })}
+                      value={userProfile?.relationshipGoal ?? "Companionship & Shared Outings"}
+                      onChange={(e) => setUserProfile((prev: any) => ({ ...(prev || {}), relationshipGoal: e.target.value }))}
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm font-medium"
                     >
                       <option value="Companionship & Shared Outings">Companionship & Shared Outings</option>
@@ -2195,7 +2238,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={handlePolishBio}
-                        disabled={isPolishingBio || !userProfile.bio}
+                        disabled={isPolishingBio || !userProfile?.bio}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 text-[10px] font-semibold border border-amber-200 transition-all cursor-pointer disabled:opacity-50"
                       >
                         {isPolishingBio ? (
@@ -2214,8 +2257,8 @@ export default function App() {
 
                     <textarea
                       rows={4}
-                      value={userProfile.bio}
-                      onChange={(e) => setUserProfile({ ...userProfile, bio: e.target.value })}
+                      value={userProfile?.bio ?? ""}
+                      onChange={(e) => setUserProfile((prev: any) => ({ ...(prev || {}), bio: e.target.value }))}
                       placeholder="Describe how you enjoy slow days, museum walks, or quiet morning reads..."
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-2xl p-4 text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-xs leading-relaxed"
                     />
@@ -2230,7 +2273,7 @@ export default function App() {
                     <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-2">Interests & Pleasures (Choose 3+)</label>
                     <div className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto p-1 bg-amber-50/20 border border-amber-100/50 rounded-xl">
                       {INTERESTS_PRESETS.map((interest) => {
-                        const isSelected = userProfile.interests.includes(interest);
+                        const isSelected = Array.isArray(userProfile?.interests) && userProfile.interests.includes(interest);
                         return (
                           <button
                             type="button"
@@ -2403,6 +2446,7 @@ export default function App() {
                   id="tab-profile"
                   onClick={() => {
                     setActiveTab("my_profile");
+                    setProfileViewMode("preview");
                     scrollToTop("smooth");
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
@@ -2539,6 +2583,7 @@ export default function App() {
               type="button"
               onClick={() => {
                 setActiveTab("my_profile");
+                setProfileViewMode("preview");
                 scrollToTop("smooth");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
@@ -2584,10 +2629,81 @@ export default function App() {
         {/* Primary Container Layout - Balanced max-w-4xl across all views */}
         <main className="w-full max-w-4xl mx-auto px-3.5 sm:px-6 py-3.5 sm:py-5 pb-6 overflow-x-hidden min-w-0 flex-1">
         {activeTab === "my_profile" ? (
-          /* EDIT PROFILE SECTION */
-          <div id="profile-pane" className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 animate-fade-in w-full max-w-full min-w-0">
-            {/* Form Column */}
-            <div className="lg:col-span-2 space-y-6 min-w-0">
+          profileViewMode === "preview" ? (
+            /* PREVIEW MODE (DEFAULT) */
+            <UserProfilePreview
+              userProfile={userProfile}
+              membershipTier={membershipTier}
+              onEdit={() => {
+                setProfileViewMode("edit");
+                scrollToTop("smooth");
+              }}
+              onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+              onOpenVault={() => setIsVaultOpen(true)}
+              onGoToDiscovery={() => {
+                setActiveTab("gardens");
+                scrollToTop("smooth");
+              }}
+              userLocation={userLocation}
+              admirerCount={admirers.length}
+            />
+          ) : (
+            /* EDIT PROFILE SECTION */
+            <div id="profile-pane" className="space-y-6 animate-fade-in w-full max-w-full min-w-0 text-left">
+              {/* Top Return-to-Preview Bar */}
+              <div className="bg-white/95 border border-amber-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-xl bg-amber-100 text-amber-900 border border-amber-200">
+                      <PenSquare className="w-4 h-4 text-amber-800" />
+                    </span>
+                    <h2 className="font-serif font-bold text-lg sm:text-xl text-amber-950">
+                      Editing Profile & Story
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold border border-amber-300">
+                      Edit Mode Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-700 font-medium">
+                    Update your details, refine your bio with AI warmth, or manage database sync.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileViewMode("preview");
+                      scrollToTop("smooth");
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 font-bold text-xs shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Return to Preview</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await saveUserProfile(userProfile);
+                      if (res.success) {
+                        setProfileSaveSuccess(true);
+                        setTimeout(() => setProfileSaveSuccess(false), 3000);
+                      }
+                      setProfileViewMode("preview");
+                      scrollToTop("smooth");
+                    }}
+                    className="px-4 py-2 bg-amber-950 hover:bg-amber-900 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Save & View Profile</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 w-full max-w-full min-w-0">
+                {/* Form Column */}
+                <div className="lg:col-span-2 space-y-6 min-w-0">
               <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-7 md:p-8 shadow-sm min-w-0 overflow-hidden">
                 <div className="flex items-center gap-3 border-b border-amber-50 pb-4 mb-6">
                   <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
@@ -3345,6 +3461,22 @@ export default function App() {
                       <button
                         type="button"
                         onClick={async () => {
+                          const res = await saveUserProfile(userProfile);
+                          if (res.success) {
+                            setProfileSaveSuccess(true);
+                            setTimeout(() => setProfileSaveSuccess(false), 3000);
+                          }
+                          setProfileViewMode("preview");
+                          scrollToTop("smooth");
+                        }}
+                        className="px-5 py-2.5 bg-amber-900 hover:bg-amber-950 text-white font-bold rounded-xl transition-all shadow-sm text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Eye className="w-4 h-4 text-amber-200" />
+                        <span>Save & View Profile</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
                           saveUserProfile(userProfile).catch(console.error);
                           setProfileSaveSuccess(true);
                           setTimeout(() => setProfileSaveSuccess(false), 3000);
@@ -3418,7 +3550,18 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="mt-8 pt-5 border-t border-amber-200/40 text-center">
+                <div className="mt-8 pt-5 border-t border-amber-200/40 text-center space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileViewMode("preview");
+                      scrollToTop("smooth");
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white border border-amber-300 hover:bg-amber-50 text-amber-950 font-bold transition-all text-xs cursor-pointer shadow-2xs flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Return to Full Preview</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -3437,7 +3580,9 @@ export default function App() {
               </div>
             </div>
           </div>
-        ) : activeTab === "conversations" || activeTab === "cafe" ? (
+        </div>
+      )
+    ) : activeTab === "conversations" || activeTab === "cafe" ? (
           <ConversationCenterPanel
             matches={matches}
             conversations={conversations}
@@ -3450,7 +3595,7 @@ export default function App() {
             chatInputValue={chatInputValue}
             setChatInputValue={setChatInputValue}
             handleSendMessage={handleSendMessage}
-            setActiveTab={setActiveTab}
+            setActiveTab={(tab: any) => setActiveTab(tab)}
             cafePosts={cafePosts}
             newPostText={newPostText}
             setNewPostText={setNewPostText}

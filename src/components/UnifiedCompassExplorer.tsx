@@ -81,7 +81,7 @@ export interface UnifiedCompassExplorerProps {
   swipeDirection: "left" | "right" | "super" | null;
   handleSwipeAction: (dir: "left" | "right" | "super") => void;
   handleSwipeRewind: () => void;
-  userLocation: { latitude: number; longitude: number; city: string; source: "gps" | "preset" } | null;
+  userLocation: { latitude: number; longitude: number; city?: string; source?: string } | null;
   onDetectLocation: () => void;
   isLocating: boolean;
   locationStatus: string | null;
@@ -95,8 +95,8 @@ export interface UnifiedCompassExplorerProps {
   locationPresetData: {
     regionLabel: string;
     regionShortBadge: string;
-    regionalPresets: Array<{ name: string; label: string; flag: string; latitude: number; longitude: number }>;
-    otherPresets: Array<{ name: string; label: string; flag: string; latitude: number; longitude: number }>;
+    regionalPresets: Array<{ name: string; label: string; flag?: string; latitude: number; longitude: number }>;
+    otherPresets: Array<{ name: string; label: string; flag?: string; latitude: number; longitude: number }>;
   };
   compassFocus: "all" | "intellectual" | "sports" | "cozy" | "romance";
   setCompassFocus: (focus: "all" | "intellectual" | "sports" | "cozy" | "romance") => void;
