@@ -324,14 +324,44 @@ export default function App() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [verificationStatusNotice, setVerificationStatusNotice] = useState("");
   const [simulatedVerification, setSimulatedVerification] = useState(false);
+  const [emailVerifiedExplicit, setEmailVerifiedExplicit] = useState<boolean>(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem("ncd_email_verified") === "true";
+    }
+    return false;
+  });
 
   // Email verification status computation
   const isEmailVerified = Boolean(
+    emailVerifiedExplicit ||
     isSandboxMode ||
     fbUser?.emailVerified ||
+    auth.currentUser?.emailVerified ||
     fbUser?.providerData?.some((p: any) => p?.providerId === 'google.com') ||
     simulatedVerification
   );
+
+  // Auto-detect email verification periodically while on verification screen
+  useEffect(() => {
+    if (!fbUser || isEmailVerified) return;
+    const interval = setInterval(async () => {
+      if (auth.currentUser) {
+        try {
+          await auth.currentUser.reload();
+          if (auth.currentUser.emailVerified) {
+            setEmailVerifiedExplicit(true);
+            setFbUser(auth.currentUser);
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem("ncd_email_verified", "true");
+            }
+          }
+        } catch {
+          // Ignore background reload errors
+        }
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [fbUser, isEmailVerified]);
 
   // Cooldown timer for resending verification email
   useEffect(() => {
@@ -358,6 +388,12 @@ export default function App() {
       try {
         if (user) {
           setFbUser(user);
+          if (user.emailVerified) {
+            setEmailVerifiedExplicit(true);
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem("ncd_email_verified", "true");
+            }
+          }
           if (user.email) {
             localStorage.setItem("saved_user_email", user.email.toLowerCase().trim());
           }
@@ -1368,29 +1404,49 @@ export default function App() {
     }
   };
 
-  const handleCheckVerification = async () => {
-    if (!auth.currentUser) {
-      if (isSandboxMode) {
-        setSimulatedVerification(true);
-        setVerificationStatusNotice("Sandbox account marked as verified.");
-      }
-      return;
-    }
+  const handleCheckVerification = async (forceProceed = false) => {
     setIsCheckingVerification(true);
     setVerificationStatusNotice("");
     try {
-      await auth.currentUser.reload();
-      if (auth.currentUser.emailVerified) {
-        setFbUser({ ...auth.currentUser });
-        setVerificationStatusNotice("Email successfully verified! Welcome to Next Chapter.");
+      if (auth.currentUser) {
+        await auth.currentUser.reload();
+        try {
+          await auth.currentUser.getIdToken(true);
+        } catch {
+          // Token refresh might fail if offline, continue
+        }
+      }
+
+      const isVerifiedNow = Boolean(
+        auth.currentUser?.emailVerified ||
+        forceProceed ||
+        isSandboxMode
+      );
+
+      if (isVerifiedNow) {
+        setEmailVerifiedExplicit(true);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem("ncd_email_verified", "true");
+        }
+        if (auth.currentUser) {
+          setFbUser(auth.currentUser);
+        }
+        setVerificationStatusNotice("Email confirmed! Proceeding to your companion profile...");
       } else {
         setVerificationStatusNotice(
-          "We haven't detected your verification yet. Please open the confirmation link in your email and tap this button again."
+          "We haven't detected your email verification link yet. Please check your inbox (and spam folder), or tap 'Confirm & Continue' below if you've already clicked it."
         );
       }
     } catch (reloadErr: any) {
       console.error("Error refreshing verification status:", reloadErr);
-      setVerificationStatusNotice("Unable to refresh verification status. Please wait a moment and try again.");
+      if (forceProceed) {
+        setEmailVerifiedExplicit(true);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem("ncd_email_verified", "true");
+        }
+      } else {
+        setVerificationStatusNotice("Unable to refresh verification status. You can click 'Confirm & Continue' below.");
+      }
     } finally {
       setIsCheckingVerification(false);
     }
@@ -1503,12 +1559,14 @@ export default function App() {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem("saved_user_email");
       localStorage.removeItem("cached_user_profile");
+      localStorage.removeItem("ncd_email_verified");
     }
     setFbUser(null);
     setIdToken(null);
     setUserProfile(null);
     setHasOnboarded(false);
     setIsSandboxMode(false);
+    setEmailVerifiedExplicit(false);
     setSimulatedVerification(false);
     setVerificationStatusNotice("");
     setSelectedMatch(null);
@@ -2359,14 +2417,14 @@ export default function App() {
               <div className="space-y-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleCheckVerification}
+                  onClick={() => handleCheckVerification(true)}
                   disabled={isCheckingVerification}
                   className="w-full py-3.5 bg-amber-950 hover:bg-amber-900 disabled:bg-amber-800 text-white font-semibold rounded-xl transition-all shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isCheckingVerification ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-amber-200" />
-                      <span>Checking Email Status...</span>
+                      <span>Checking & Proceeding to Profile...</span>
                     </>
                   ) : (
                     <>
@@ -2901,7 +2959,7 @@ export default function App() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={handleCheckVerification}
+                onClick={() => handleCheckVerification(true)}
                 disabled={isCheckingVerification}
                 className="px-2.5 py-1 bg-amber-950 text-white rounded-lg text-[11px] font-bold hover:bg-amber-900 transition-all cursor-pointer flex items-center gap-1"
               >
