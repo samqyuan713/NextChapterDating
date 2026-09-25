@@ -22,7 +22,9 @@ import {
   Coffee,
   User,
   SlidersHorizontal,
-  Eye
+  Eye,
+  BadgeAlert,
+  Mail
 } from "lucide-react";
 import { MembershipTier, VoiceGreeting } from "../types";
 import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
@@ -45,6 +47,7 @@ interface UserProfilePreviewProps {
     gender?: string;
   };
   membershipTier: MembershipTier;
+  emailVerified?: boolean;
   onEdit: () => void;
   onOpenSubscriptionModal: () => void;
   onOpenVault: () => void;
@@ -60,6 +63,7 @@ interface UserProfilePreviewProps {
 export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
   userProfile,
   membershipTier,
+  emailVerified = true,
   onEdit,
   onOpenSubscriptionModal,
   onOpenVault,
@@ -91,6 +95,17 @@ export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold border border-emerald-300">
               Active in Salon
             </span>
+            {emailVerified ? (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-300 flex items-center gap-1 shadow-2xs">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>Verified Account</span>
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 text-[10px] font-bold border border-amber-300 flex items-center gap-1 shadow-2xs">
+                <BadgeAlert className="w-3 h-3 text-amber-700" />
+                <span>Verification Pending</span>
+              </span>
+            )}
           </div>
           <p className="text-xs text-amber-700 font-medium">
             This is how your dignified profile and story card appear to local companions in NextChapter.

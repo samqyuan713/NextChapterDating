@@ -21,6 +21,7 @@ export interface SyncedProfile {
   bio: string;
   relationshipGoal: string;
   isSubscribed: boolean;
+  emailVerified?: boolean;
   latitude?: number;
   longitude?: number;
   gpsEnabled?: boolean;
@@ -64,6 +65,7 @@ export async function saveProfileToFirestore(
       bio: profile.bio || "",
       relationshipGoal: profile.relationshipGoal || "Companionship & Shared Outings",
       isSubscribed: Boolean(profile.isSubscribed),
+      emailVerified: Boolean(profile.emailVerified),
       userId: emailOrUid,
       email: emailOrUid,
       updatedAt: nowIso,

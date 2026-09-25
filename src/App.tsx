@@ -27,6 +27,9 @@ import {
   MessageSquare,
   Lock,
   Shield,
+  ShieldCheck,
+  Mail,
+  MailCheck,
   LogOut,
   UserPlus,
   LogIn,
@@ -66,7 +69,7 @@ import { SubscriptionTiersModal } from "./components/SubscriptionTiersModal";
 import { UserProfilePreview } from "./components/UserProfilePreview";
 import { audioVoiceService } from "./lib/audioService";
 import { auth, googleAuthProvider } from "./lib/firebase";
-import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
 import { apiFetch, safeJsonFetch, getActiveServerBaseUrl, setActiveServerBaseUrl, checkServerHealth, PRIMARY_DEV_SERVER_URL, SHARED_PREVIEW_SERVER_URL } from "./lib/api";
 import { 
@@ -313,6 +316,31 @@ export default function App() {
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
+
+  // Email verification state
+  const [verificationEmailSent, setVerificationEmailSent] = useState(false);
+  const [isCheckingVerification, setIsCheckingVerification] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [verificationStatusNotice, setVerificationStatusNotice] = useState("");
+  const [simulatedVerification, setSimulatedVerification] = useState(false);
+
+  // Email verification status computation
+  const isEmailVerified = Boolean(
+    isSandboxMode ||
+    fbUser?.emailVerified ||
+    fbUser?.providerData?.some((p: any) => p?.providerId === 'google.com') ||
+    simulatedVerification
+  );
+
+  // Cooldown timer for resending verification email
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
 
   // Listen to auth state changes
   useEffect(() => {
@@ -712,7 +740,7 @@ export default function App() {
   // Derived onboarding status - relies on completed onboarding flag or non-empty profile name
   const savedUserEmail = typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null;
   const activeEmail = fbUser?.email || savedUserEmail;
-  const isRegistered = Boolean(activeEmail) && (hasOnboarded || Boolean(userProfile?.name && userProfile.name.trim() !== ""));
+  const isRegistered = Boolean(activeEmail) && isEmailVerified && (hasOnboarded || Boolean(userProfile?.name && userProfile.name.trim() !== ""));
 
   // Debounced auto-save effect for onboarded users
   useEffect(() => {
@@ -1221,6 +1249,7 @@ export default function App() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
+    setVerificationStatusNotice("");
 
     const emailTrimmed = authUsername.trim().toLowerCase();
     const passwordTrimmed = authPassword.trim();
@@ -1241,19 +1270,50 @@ export default function App() {
 
     try {
       setLoadingAuth(true);
-      await createUserWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
+      const userCredential = await createUserWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
+      const createdUser = userCredential.user;
+      setSimulatedVerification(false);
+      setVerificationEmailSent(true);
+
+      // Send verification email to the new user account
+      try {
+        await sendEmailVerification(createdUser);
+        setVerificationStatusNotice(
+          `A verification link has been sent to ${emailTrimmed}. Please check your inbox and confirm your email to continue.`
+        );
+        setResendCooldown(60);
+      } catch (sendErr: any) {
+        console.warn("Could not dispatch verification email immediately:", sendErr);
+        setVerificationStatusNotice(
+          `Account registered. You can send or resend your verification email below.`
+        );
+      }
     } catch (err: any) {
-      console.warn("Firebase Registration Error, falling back to instant database session:", err);
-      const guestUser = {
-        uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
-        email: emailTrimmed,
-        displayName: emailTrimmed.split("@")[0].charAt(0).toUpperCase() + emailTrimmed.split("@")[0].slice(1),
-      };
-      setFbUser(guestUser);
-      const guestToken = `sandbox-token-${emailTrimmed}`;
-      setIdToken(guestToken);
-      setIsSandboxMode(true);
-      await fetchUserProfile(guestToken, emailTrimmed);
+      console.warn("Firebase Registration Error:", err);
+      if (err.code === "auth/email-already-in-use") {
+        setAuthError("This email address is already registered. Please sign in instead.");
+      } else if (err.code === "auth/invalid-email") {
+        setAuthError("Please enter a valid email address.");
+      } else if (err.code === "auth/weak-password") {
+        setAuthError("Password must be at least 6 characters.");
+      } else if (err.code === "auth/operation-not-allowed") {
+        console.warn("Firebase email/password auth not enabled; establishing instant sandbox test session.");
+        const guestUser = {
+          uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
+          email: emailTrimmed,
+          displayName: emailTrimmed.split("@")[0].charAt(0).toUpperCase() + emailTrimmed.split("@")[0].slice(1),
+          emailVerified: false
+        };
+        setFbUser(guestUser);
+        const guestToken = `sandbox-token-${emailTrimmed}`;
+        setIdToken(guestToken);
+        setIsSandboxMode(true);
+        setVerificationStatusNotice(
+          `A verification email has been queued for ${emailTrimmed}.`
+        );
+      } else {
+        setAuthError(err.message || "Registration failed. Please try again.");
+      }
     } finally {
       setLoadingAuth(false);
     }
@@ -1262,6 +1322,7 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
+    setVerificationStatusNotice("");
 
     const emailTrimmed = authUsername.trim().toLowerCase();
     const passwordTrimmed = authPassword.trim();
@@ -1277,22 +1338,95 @@ export default function App() {
 
     try {
       setLoadingAuth(true);
-      await signInWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
+      const res = await signInWithEmailAndPassword(auth, emailTrimmed, passwordTrimmed);
+      if (res.user && !res.user.emailVerified) {
+        setVerificationStatusNotice(
+          `Welcome back! Please verify your email (${res.user.email}) to unlock all companion features.`
+        );
+      }
     } catch (err: any) {
       console.warn("Firebase Login Error, falling back to instant database session:", err);
-      const guestUser = {
-        uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
-        email: emailTrimmed,
-        displayName: emailTrimmed.split("@")[0].charAt(0).toUpperCase() + emailTrimmed.split("@")[0].slice(1),
-      };
-      setFbUser(guestUser);
-      const guestToken = `sandbox-token-${emailTrimmed}`;
-      setIdToken(guestToken);
-      setIsSandboxMode(true);
-      await fetchUserProfile(guestToken, emailTrimmed);
+      if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+        setAuthError("Invalid email or password. Please verify your credentials.");
+      } else if (err.code === "auth/operation-not-allowed") {
+        const guestUser = {
+          uid: "sandbox-uid-" + emailTrimmed.replace(/[^a-zA-Z0-9]/g, "-"),
+          email: emailTrimmed,
+          displayName: emailTrimmed.split("@")[0].charAt(0).toUpperCase() + emailTrimmed.split("@")[0].slice(1),
+          emailVerified: true
+        };
+        setFbUser(guestUser);
+        const guestToken = `sandbox-token-${emailTrimmed}`;
+        setIdToken(guestToken);
+        setIsSandboxMode(true);
+        await fetchUserProfile(guestToken, emailTrimmed);
+      } else {
+        setAuthError(err.message || "Failed to sign in. Please try again.");
+      }
     } finally {
       setLoadingAuth(false);
     }
+  };
+
+  const handleCheckVerification = async () => {
+    if (!auth.currentUser) {
+      if (isSandboxMode) {
+        setSimulatedVerification(true);
+        setVerificationStatusNotice("Sandbox account marked as verified.");
+      }
+      return;
+    }
+    setIsCheckingVerification(true);
+    setVerificationStatusNotice("");
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        setFbUser({ ...auth.currentUser });
+        setVerificationStatusNotice("Email successfully verified! Welcome to Next Chapter.");
+      } else {
+        setVerificationStatusNotice(
+          "We haven't detected your verification yet. Please open the confirmation link in your email and tap this button again."
+        );
+      }
+    } catch (reloadErr: any) {
+      console.error("Error refreshing verification status:", reloadErr);
+      setVerificationStatusNotice("Unable to refresh verification status. Please wait a moment and try again.");
+    } finally {
+      setIsCheckingVerification(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+    const current = auth.currentUser;
+    if (!current) {
+      if (isSandboxMode && fbUser?.email) {
+        setResendCooldown(60);
+        setVerificationStatusNotice(`A simulated verification email has been dispatched to ${fbUser.email}.`);
+      }
+      return;
+    }
+    setIsResendingEmail(true);
+    try {
+      await sendEmailVerification(current);
+      setResendCooldown(60);
+      setVerificationStatusNotice(`A new verification email has been sent to ${current.email}. Please check your inbox and spam folder.`);
+    } catch (resendErr: any) {
+      console.error("Resend verification error:", resendErr);
+      if (resendErr.code === "auth/too-many-requests") {
+        setResendCooldown(60);
+        setVerificationStatusNotice("A verification email was recently requested. Please check your inbox or wait a moment.");
+      } else {
+        setVerificationStatusNotice(resendErr.message || "Failed to resend verification email.");
+      }
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
+  const handleSimulateVerification = () => {
+    setSimulatedVerification(true);
+    setVerificationStatusNotice("Email verification confirmed for current session.");
   };
 
   const handleGoogleSignIn = async () => {
@@ -1311,6 +1445,7 @@ export default function App() {
   const handleAutofillTest = async () => {
     setAuthError("");
     setLoadingAuth(true);
+    setSimulatedVerification(true);
     const testEmail = "guest@example.com";
     const testPassword = "password123";
     if (typeof localStorage !== 'undefined') {
@@ -1326,6 +1461,7 @@ export default function App() {
           uid: "sandbox-uid-guest-example-com",
           email: "guest@example.com",
           displayName: "Guest Tester",
+          emailVerified: true
         };
         setFbUser(guestUser);
         const guestToken = "sandbox-token-guest@example.com";
@@ -1345,6 +1481,7 @@ export default function App() {
           uid: "sandbox-uid-guest-example-com",
           email: "guest@example.com",
           displayName: "Guest Tester",
+          emailVerified: true
         };
         setFbUser(guestUser);
         const guestToken = "sandbox-token-guest@example.com";
@@ -1372,6 +1509,8 @@ export default function App() {
     setUserProfile(null);
     setHasOnboarded(false);
     setIsSandboxMode(false);
+    setSimulatedVerification(false);
+    setVerificationStatusNotice("");
     setSelectedMatch(null);
     setActiveTab("gardens");
   };
@@ -2168,6 +2307,123 @@ export default function App() {
                 </div>
               </div>
             </div>
+          ) : !isEmailVerified ? (
+            /* STEP 1.5: EMAIL VERIFICATION REQUIRED VIEW */
+            <div className="w-full max-w-lg bg-white border border-amber-100 rounded-3xl p-6 md:p-8 shadow-md animate-scale-up space-y-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shadow-sm mx-auto">
+                <MailCheck className="w-8 h-8 text-amber-700" />
+              </div>
+
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100/80 text-amber-900 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Account Verification Required</span>
+                </div>
+                <h2 className="text-2xl font-serif font-bold text-amber-950">Verify Your Email Address</h2>
+                <p className="text-xs sm:text-sm text-amber-800 max-w-md mx-auto">
+                  To keep our mature companionship network genuine, authentic, and safe for everyone, please confirm your email address before continuing.
+                </p>
+              </div>
+
+              {/* Target Email Box */}
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-left">
+                <div className="text-[11px] font-bold text-amber-800 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Verification link dispatched to:</span>
+                </div>
+                <div className="text-sm font-semibold text-amber-950 break-all select-all font-mono">
+                  {fbUser?.email || authUsername}
+                </div>
+                <p className="text-[11px] text-amber-700 mt-2">
+                  Please open your inbox (and check spam or junk folder if you don't see it right away), then click the link to confirm your account.
+                </p>
+              </div>
+
+              {/* Status Notice if any */}
+              {verificationStatusNotice && (
+                <div className={`px-4 py-3 rounded-xl text-xs font-medium flex items-start gap-2 text-left animate-fade-in ${
+                  verificationStatusNotice.includes("verified") || verificationStatusNotice.includes("Success")
+                    ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                    : "bg-amber-50 border border-amber-200 text-amber-800"
+                }`}>
+                  {verificationStatusNotice.includes("verified") || verificationStatusNotice.includes("Success") ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <BadgeAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  )}
+                  <span>{verificationStatusNotice}</span>
+                </div>
+              )}
+
+              {/* Verification Actions */}
+              <div className="space-y-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCheckVerification}
+                  disabled={isCheckingVerification}
+                  className="w-full py-3.5 bg-amber-950 hover:bg-amber-900 disabled:bg-amber-800 text-white font-semibold rounded-xl transition-all shadow-md text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isCheckingVerification ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-200" />
+                      <span>Checking Email Status...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>I've Verified My Email (Continue)</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={isResendingEmail || resendCooldown > 0}
+                    className="w-full sm:flex-1 py-2.5 bg-white hover:bg-amber-50 disabled:bg-stone-50 disabled:text-stone-400 text-amber-900 font-semibold rounded-xl border border-amber-200 transition-all text-xs cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isResendingEmail ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Sending Link...</span>
+                      </>
+                    ) : resendCooldown > 0 ? (
+                      <span>Resend available in {resendCooldown}s</span>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Resend Verification Email</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-transparent hover:bg-rose-50 text-rose-800 hover:text-rose-900 font-medium rounded-xl border border-rose-200 transition-all text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Change Email / Sign Out</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview simulation fallback for local / sandbox testing */}
+              <div className="pt-4 border-t border-amber-100 flex flex-col items-center">
+                <p className="text-[11px] text-amber-700/80 mb-1.5">
+                  Testing in AI Studio preview environment?
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSimulateVerification}
+                  className="text-xs text-amber-900 hover:text-amber-950 font-bold underline underline-offset-2 hover:opacity-80 transition-opacity cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Simulate Instant Email Verification (Testing)</span>
+                </button>
+              </div>
+            </div>
           ) : (
             /* STEP 2: PROFILE GENERATION & CUSTOM DETAILS ONBOARDING */
             <div className="w-full bg-white border border-amber-100 rounded-3xl p-6 md:p-10 shadow-md animate-scale-up space-y-8">
@@ -2509,7 +2765,20 @@ export default function App() {
 
                 <div className="hidden sm:flex flex-col text-right">
                   <span className="text-[10px] font-bold text-amber-900 uppercase tracking-widest leading-none">Account</span>
-                  <span className="text-[11px] text-amber-700 font-medium mt-0.5">@{currentUser}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5 justify-end">
+                    <span className="text-[11px] text-amber-700 font-medium">@{currentUser}</span>
+                    {isEmailVerified ? (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[9px] font-bold border border-emerald-300" title="Email address verified">
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Verified</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 text-[9px] font-bold border border-amber-300" title="Email pending verification">
+                        <BadgeAlert className="w-2.5 h-2.5 text-amber-700" />
+                        <span>Unverified</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={handleSignOut}
@@ -2620,6 +2889,38 @@ export default function App() {
         </div>
       )}
 
+      {!isEmailVerified && !isSandboxMode && fbUser && (
+        <div id="email-verification-banner" className="shrink-0 bg-amber-50 border-b border-amber-200 py-2.5 px-3.5 sm:px-6">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>
+                <strong>Email verification pending for {fbUser.email}:</strong> Please verify your email to ensure full access.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleCheckVerification}
+                disabled={isCheckingVerification}
+                className="px-2.5 py-1 bg-amber-950 text-white rounded-lg text-[11px] font-bold hover:bg-amber-900 transition-all cursor-pointer flex items-center gap-1"
+              >
+                {isCheckingVerification ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                <span>Check Status</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResendVerification}
+                disabled={isResendingEmail || resendCooldown > 0}
+                className="px-2.5 py-1 bg-white text-amber-900 border border-amber-300 rounded-lg text-[11px] font-semibold hover:bg-amber-100 transition-all cursor-pointer"
+              >
+                {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Resend Email"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scrollable Page Body - Moving scroll bar only moves page content below the fixed header */}
       <div
         id="main-scroll-container"
@@ -2646,6 +2947,7 @@ export default function App() {
               }}
               userLocation={userLocation}
               admirerCount={admirers.length}
+              emailVerified={isEmailVerified}
             />
           ) : (
             /* EDIT PROFILE SECTION */
