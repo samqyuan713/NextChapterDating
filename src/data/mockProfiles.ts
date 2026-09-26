@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Profile, VoiceGreeting, CuratedIntroduction } from "../types";
-import { calculateDistance, POPULAR_CITY_PRESETS } from "../lib/locationService";
+import type { Profile, VoiceGreeting, CuratedIntroduction } from "../types.ts";
+import { calculateDistance, POPULAR_CITY_PRESETS } from "../lib/locationService.ts";
 
 export const COMPANION_VOICE_GREETINGS: Record<string, VoiceGreeting> = {
   meiling: {

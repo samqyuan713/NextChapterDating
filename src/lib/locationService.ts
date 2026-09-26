@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Geolocation, Position } from '@capacitor/geolocation';
+import { Geolocation, type Position } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 
 export interface GeoCoordinates {
