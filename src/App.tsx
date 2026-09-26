@@ -1589,7 +1589,10 @@ export default function App() {
         const withCoords = baseList.map((p) => {
           const match = INITIAL_MATCH_PROFILES.find((m) => m.id === p.id);
           return {
+            ...match,
             ...p,
+            photoUrl: p.photoUrl || match?.photoUrl,
+            voiceGreeting: p.voiceGreeting || match?.voiceGreeting,
             latitude: p.latitude ?? match?.latitude,
             longitude: p.longitude ?? match?.longitude
           };

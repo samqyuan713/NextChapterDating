@@ -210,7 +210,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
 }) => {
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
   const [showConciergeCard, setShowConciergeCard] = useState<boolean>(true);
-  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, boolean>>({});
+  const [imageLoadErrors, setImageLoadErrors] = useState<Record<string, number>>({});
 
   // Active filter count for badge
   const activeFiltersCount =
@@ -891,7 +891,15 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                         alt={currentCompanion.name}
                         className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-101"
                         referrerPolicy="no-referrer"
-                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [currentCompanion.id]: true }))}
+                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [currentCompanion.id]: 1 }))}
+                      />
+                    ) : imageLoadErrors[currentCompanion.id] === 1 ? (
+                      <img
+                        src={`https://api.dicebear.com/7.x/micah/svg?seed=${encodeURIComponent(currentCompanion.name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`}
+                        alt={currentCompanion.name}
+                        className="w-full h-full object-cover object-center bg-stone-200"
+                        referrerPolicy="no-referrer"
+                        onError={() => setImageLoadErrors((prev) => ({ ...prev, [currentCompanion.id]: 2 }))}
                       />
                     ) : (
                       <div className={`w-full h-full bg-gradient-to-tr ${currentCompanion.avatarColor} flex flex-col items-center justify-center p-6 text-center text-white relative`}>

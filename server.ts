@@ -14,6 +14,7 @@ import dotenv from "dotenv";
 import { db, companions, users, messages, compatibility } from "./src/db/index.ts";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "./src/middleware/auth.ts";
+import { INITIAL_MATCH_PROFILES } from "./src/data/mockProfiles.ts";
 
 dotenv.config();
 
@@ -54,8 +55,9 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
-// Prebaked high-fidelity mature match profiles for "Next Chapter Dating" (used as fallback and initial seeding reference)
-const MATCH_PROFILES = [
+// Prebaked high-fidelity mature match profiles with photoUrl, voiceGreeting, and geo coordinates
+const MATCH_PROFILES = INITIAL_MATCH_PROFILES;
+const _LEGACY_FALLBACK = [
   {
     id: "meiling",
     name: "Mei-Ling",
@@ -523,7 +525,7 @@ app.get("/api/db/table/:tableName", async (req, res) => {
   }
 });
 
-// 1. Get Match profiles (dynamic from DB, falls back to prebaked)
+// 1. Get Match profiles (dynamic from DB, merged with full rich media, photos & voice greetings)
 app.get("/api/matches", async (req, res) => {
   try {
     const list = await db.select().from(companions);
@@ -533,7 +535,24 @@ app.get("/api/matches", async (req, res) => {
         const [meiling] = list.splice(meilingIdx, 1);
         list.unshift(meiling);
       }
-      return res.json({ status: "success", matches: list });
+      // Always enrich DB companions with photoUrl, voiceGreeting, and geo coordinates from MATCH_PROFILES
+      const enrichedList = list.map((dbComp) => {
+        const staticMatch = MATCH_PROFILES.find((m) => m.id === dbComp.id);
+        return {
+          ...staticMatch,
+          ...dbComp,
+          photoUrl: (dbComp as any).photoUrl || staticMatch?.photoUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1000&q=80",
+          voiceGreeting: (dbComp as any).voiceGreeting || staticMatch?.voiceGreeting || {
+            profileId: dbComp.id,
+            durationSeconds: 16,
+            transcript: `Hello there, I'm ${dbComp.name}. In this chapter of my life, I treasure simple warmth, good company, and heartfelt conversation. I hope to hear your story soon.`,
+            accent: "Warm & Reflective"
+          },
+          latitude: (dbComp as any).latitude ?? staticMatch?.latitude ?? 1.3521,
+          longitude: (dbComp as any).longitude ?? staticMatch?.longitude ?? 103.8198
+        };
+      });
+      return res.json({ status: "success", matches: enrichedList });
     }
   } catch (error) {
     console.error("Failed to query companions from DB, falling back to static profiles:", error);

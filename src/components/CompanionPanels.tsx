@@ -11,6 +11,8 @@ import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
 import { filterCompanions } from "../data/mockProfiles";
 import { detectPlatformLeakage, CURATED_DAILY_PROMPTS, CuratedDailyPrompt } from "../lib/safetyGuard";
+import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
+import { audioVoiceService } from "../lib/audioService";
 
 // Constant presets matching App.tsx
 const INTERESTS_PRESETS = [
@@ -786,8 +788,21 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-3xl shadow-inner border border-white/40`}>
-                          {companion.avatarEmoji}
+                        <div className={`w-14 h-14 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-3xl shadow-inner border border-white/60 overflow-hidden relative`}>
+                          {companion.photoUrl ? (
+                            <img
+                              src={companion.photoUrl}
+                              alt={companion.name}
+                              className="w-full h-full object-cover object-center"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : null}
+                          <span className={`${companion.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}`}>
+                            {companion.avatarEmoji}
+                          </span>
                         </div>
                         <div>
                           <h4 className="font-serif font-bold text-amber-950 text-lg leading-tight">
@@ -1695,8 +1710,21 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-xl border border-white shadow-inner`}>
-                      {companion.avatarEmoji}
+                    <div className={`w-11 h-11 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-xl border border-white/70 shadow-inner overflow-hidden relative`}>
+                      {companion.photoUrl ? (
+                        <img
+                          src={companion.photoUrl}
+                          alt={companion.name}
+                          className="w-full h-full object-cover object-center"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                      <span className={`${companion.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}`}>
+                        {companion.avatarEmoji}
+                      </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
@@ -1756,8 +1784,21 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                 className="flex items-center gap-3 cursor-pointer group hover:opacity-95 transition-opacity"
                 title="Click to view companion profile"
               >
-                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-2xl shadow-inner border border-white group-hover:scale-105 transition-transform shrink-0`}>
-                  {selectedMatch.avatarEmoji}
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-2xl shadow-inner border border-white group-hover:scale-105 transition-transform shrink-0 overflow-hidden relative`}>
+                  {selectedMatch.photoUrl ? (
+                    <img
+                      src={selectedMatch.photoUrl}
+                      alt={selectedMatch.name}
+                      className="w-full h-full object-cover object-center"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : null}
+                  <span className={`${selectedMatch.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}`}>
+                    {selectedMatch.avatarEmoji}
+                  </span>
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-serif font-bold text-amber-950 text-lg leading-tight flex items-center gap-1.5 flex-wrap">
@@ -1774,15 +1815,40 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowProfileModal(true)}
-                className="text-xs text-amber-950 hover:text-amber-800 font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl shadow-2xs shrink-0"
-                title="View full companion profile"
-              >
-                <User className="w-3.5 h-3.5 text-rose-500" />
-                <span>View Companion Details</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                {selectedMatch.voiceGreeting && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (audioVoiceService.state.isPlaying && audioVoiceService.state.activeProfileId === selectedMatch.id) {
+                        audioVoiceService.stop();
+                      } else {
+                        audioVoiceService.playGreeting(
+                          selectedMatch.id,
+                          selectedMatch.voiceGreeting!.transcript,
+                          selectedMatch.voiceGreeting!.durationSeconds || 16,
+                          selectedMatch.gender || "Neutral"
+                        );
+                      }
+                    }}
+                    className="text-xs text-amber-950 hover:text-amber-800 font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5 bg-amber-100/70 border border-amber-300 px-3 py-1.5 rounded-xl shadow-2xs"
+                    title={`Listen to ${selectedMatch.name}'s voice greeting`}
+                  >
+                    <Volume2 className="w-3.5 h-3.5 text-amber-800" />
+                    <span>Voice Note</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-xs text-amber-950 hover:text-amber-800 font-bold hover:bg-amber-100 transition-all cursor-pointer flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl shadow-2xs"
+                  title="View full companion profile"
+                >
+                  <User className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Profile & Bio</span>
+                </button>
+              </div>
             </div>
 
             {/* Pill tabs for Chat vs Melody Lounge */}
@@ -2002,8 +2068,21 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-left">
           {/* Avatar & Key Overview */}
           <div className="bg-white border border-amber-150/80 rounded-2xl p-4 shadow-2xs flex items-center gap-4">
-            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-3xl sm:text-4xl shadow-md border-2 border-white shrink-0`}>
-              {selectedMatch.avatarEmoji}
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr ${selectedMatch.avatarColor} flex items-center justify-center text-3xl sm:text-4xl shadow-md border-2 border-white shrink-0 overflow-hidden relative`}>
+              {selectedMatch.photoUrl ? (
+                <img
+                  src={selectedMatch.photoUrl}
+                  alt={selectedMatch.name}
+                  className="w-full h-full object-cover object-center"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : null}
+              <span className={`${selectedMatch.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}`}>
+                {selectedMatch.avatarEmoji}
+              </span>
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -2033,6 +2112,19 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Authentic Companion Voice Greeting Audio Player */}
+          {selectedMatch.voiceGreeting && (
+            <div className="pt-1">
+              <VoiceGreetingPlayer
+                greeting={selectedMatch.voiceGreeting}
+                companionName={selectedMatch.name}
+                gender={selectedMatch.gender}
+                accent={selectedMatch.voiceGreeting.accent}
+                isUnlocked={true}
+              />
+            </div>
+          )}
 
           {/* Physical Metrics & Life Chapter */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
