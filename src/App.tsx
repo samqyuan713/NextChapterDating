@@ -1064,7 +1064,7 @@ export default function App() {
       avatarEmoji: "👴",
       text: "Spent a wonderful morning at the local botanical gardens admiring the heirloom rose collection. It reminded me how beautiful quiet patience can be. A fine book is a perfect companion for a tea-filled afternoon. 🌹",
       timestamp: new Date(Date.now() - 3600000 * 3).toISOString(), // 3 hrs ago
-      likes: 12,
+      likes: 5,
       likedByMe: false,
       replies: [
         {
@@ -1083,7 +1083,7 @@ export default function App() {
       avatarEmoji: "🎨",
       text: "Perfecting my sourdough crust is an ongoing art form! Today's loaf came out with a beautiful golden crackle and a nice open crumb. Is anyone else taking slow pleasure in baking this week? 🍞",
       timestamp: new Date(Date.now() - 3600000 * 6).toISOString(), // 6 hrs ago
-      likes: 8,
+      likes: 4,
       likedByMe: false,
       replies: [
         {
@@ -1102,7 +1102,7 @@ export default function App() {
       avatarEmoji: "🧘",
       text: "Enjoyed a peaceful cup of freshly brewed spiced cardamom tea under the warm morning sun. Wishing everyone a slow day filled with light and gentle breaths. Take deep inhales today. ☕",
       timestamp: new Date(Date.now() - 3600000 * 12).toISOString(), // 12 hrs ago
-      likes: 15,
+      likes: 6,
       likedByMe: false,
       replies: []
     }

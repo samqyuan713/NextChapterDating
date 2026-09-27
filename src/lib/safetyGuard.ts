@@ -208,37 +208,37 @@ export const CURATED_DAILY_PROMPTS: CuratedDailyPrompt[] = [
     icon: '🌅',
     companionResponses: [
       {
-        companionId: '1',
+        companionId: 'eleanor',
         companionName: 'Eleanor',
-        companionAge: 52,
-        companionLocation: 'Portland, OR',
-        avatarColor: 'from-rose-400 to-amber-300',
-        avatarEmoji: '🌸',
-        reflection: 'Stepping onto my deck at 6:45 AM before the neighborhood wakes, mug of jasmine green tea warm in both hands, listening to the cedar waxwings. It reminds me that life in this chapter doesn’t need to be rushed.',
+        companionAge: 71,
+        companionLocation: 'Oakwood Hills, IL',
+        avatarColor: 'from-fuchsia-100 to-purple-200 text-purple-900',
+        avatarEmoji: '🎻',
+        reflection: 'Stepping onto my deck at 6:45 AM before the neighborhood wakes, mug of jasmine green tea warm in both hands, listening to the morning birds. It reminds me that life in this chapter doesn’t need to be rushed.',
         publishedTime: 'Today at 7:15 AM',
-        likes: 14
+        likes: 5
       },
       {
-        companionId: '2',
+        companionId: 'marcus',
         companionName: 'Marcus',
-        companionAge: 58,
-        companionLocation: 'Seattle, WA',
-        avatarColor: 'from-amber-600 to-emerald-600',
-        avatarEmoji: '🪵',
-        reflection: 'Hand-sanding reclaimed pine in my woodshop while jazz plays softly on an old FM receiver. When the sun breaks through the mist, there is nothing more grounding.',
+        companionAge: 65,
+        companionLocation: 'Scottish Highlands, UK',
+        avatarColor: 'from-emerald-100 to-teal-200 text-teal-900',
+        avatarEmoji: '🏔️',
+        reflection: 'Tending the hearth woodstove while gentle acoustic tunes play softly in the cabin. When the morning sun breaks through the loch mist, there is nothing more grounding.',
         publishedTime: 'Today at 8:02 AM',
-        likes: 19
+        likes: 7
       },
       {
-        companionId: '3',
+        companionId: 'clara',
         companionName: 'Clara',
-        companionAge: 61,
-        companionLocation: 'San Francisco, CA',
-        avatarColor: 'from-violet-400 to-rose-300',
-        avatarEmoji: '🎨',
-        reflection: 'Sketching the morning fog shifting over the bay with fresh watercolor washes. Every dawn is a brand-new palette waiting to be noticed.',
+        companionAge: 56,
+        companionLocation: 'Sausalito, CA',
+        avatarColor: 'from-teal-100 to-emerald-200 text-emerald-900',
+        avatarEmoji: '🌿',
+        reflection: 'Sketching the morning coastal fog shifting over the bay with fresh watercolor washes. Every dawn is a brand-new palette waiting to be noticed.',
         publishedTime: 'Today at 8:40 AM',
-        likes: 11
+        likes: 4
       }
     ]
   },
@@ -251,26 +251,26 @@ export const CURATED_DAILY_PROMPTS: CuratedDailyPrompt[] = [
     icon: '🎵',
     companionResponses: [
       {
-        companionId: '4',
+        companionId: 'arthur',
         companionName: 'Arthur',
-        companionAge: 64,
-        companionLocation: 'Boston, MA',
-        avatarColor: 'from-blue-600 to-amber-600',
-        avatarEmoji: '⛵',
-        reflection: 'Dave Brubeck’s "Take Five" on vinyl. My late uncle played it on Sunday afternoons after sailing in Marblehead harbor. The smell of cedar smoke and brass.',
+        companionAge: 68,
+        companionLocation: 'Oak Park, IL',
+        avatarColor: 'from-amber-100 to-stone-200 text-amber-900',
+        avatarEmoji: '📚',
+        reflection: 'Dave Brubeck’s "Take Five" on vinyl. Playing it on Sunday afternoons while binding old botanical folios. The smell of cedar smoke and aged paper always brings comfort.',
         publishedTime: 'Yesterday',
-        likes: 22
+        likes: 8
       },
       {
-        companionId: '5',
-        companionName: 'Vivian',
-        companionAge: 55,
-        companionLocation: 'Denver, CO',
-        avatarColor: 'from-emerald-500 to-teal-400',
-        avatarEmoji: '🌿',
-        reflection: 'Vivaldi’s Four Seasons (Autumn). My father used to hum the movement while harvesting heritage apples in upstate New York.',
+        companionId: 'evelyn',
+        companionName: 'Evelyn',
+        companionAge: 62,
+        companionLocation: 'Carmel-by-the-Sea, CA',
+        avatarColor: 'from-rose-100 to-amber-100 text-rose-900',
+        avatarEmoji: '🎨',
+        reflection: 'Vivaldi’s Four Seasons (Autumn). My father used to hum the movement while harvesting heritage apples in upstate orchards.',
         publishedTime: 'Yesterday',
-        likes: 16
+        likes: 6
       }
     ]
   },
@@ -283,26 +283,26 @@ export const CURATED_DAILY_PROMPTS: CuratedDailyPrompt[] = [
     icon: '🗺️',
     companionResponses: [
       {
-        companionId: '6',
-        companionName: 'Julian',
-        companionAge: 59,
-        companionLocation: 'Austin, TX',
-        avatarColor: 'from-amber-700 to-rose-500',
-        avatarEmoji: '☕',
-        reflection: 'A stone guesthouse in Kyoto overlooking a moss garden in November. No television, just the sound of rain on cedar roof tiles and warm houjicha tea.',
+        companionId: 'takashi',
+        companionName: 'Takashi',
+        companionAge: 63,
+        companionLocation: 'Kyoto, Japan',
+        avatarColor: 'from-emerald-100 to-teal-100 text-teal-900',
+        avatarEmoji: '🪴',
+        reflection: 'A stone pavilion overlooking a quiet moss garden in November. No noise, just the sound of rain on cedar roof tiles and a steaming bowl of hot sencha tea.',
         publishedTime: '2 days ago',
-        likes: 25
+        likes: 7
       },
       {
-        companionId: '7',
-        companionName: 'Beatrice',
-        companionAge: 57,
-        companionLocation: 'Chicago, IL',
-        avatarColor: 'from-rose-500 to-pink-400',
-        avatarEmoji: '📚',
-        reflection: 'A small second-hand bookstore in Edinburgh with worn leather wingback armchairs and the smell of paper and peat smoke. I could have stayed forever.',
+        companionId: 'meiling',
+        companionName: 'Mei-Ling',
+        companionAge: 62,
+        companionLocation: 'Singapore',
+        avatarColor: 'from-emerald-100 to-teal-200 text-teal-950',
+        avatarEmoji: '🌺',
+        reflection: 'A small second-hand bookstore in Edinburgh with worn leather wingback armchairs and the aroma of old paper and Earl Grey tea. I could have stayed forever.',
         publishedTime: '2 days ago',
-        likes: 18
+        likes: 6
       }
     ]
   }
