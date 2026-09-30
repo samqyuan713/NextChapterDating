@@ -59,7 +59,8 @@ import {
   Unlock,
   Volume2,
   Eye,
-  ArrowLeft
+  ArrowLeft,
+  ShieldAlert
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis, MembershipTier, VoiceGreeting } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
@@ -665,6 +666,18 @@ export default function App() {
       searchRadiusMiles: updated.searchRadiusMiles !== undefined ? updated.searchRadiusMiles : userProfile?.searchRadiusMiles,
       updatedAt: nowIso
     };
+
+    // Pre-flight safety check: prevent saving sensitive contact details to bio/story
+    if (nextProfile.bio && typeof nextProfile.bio === "string") {
+      const leakCheck = detectPlatformLeakage(nextProfile.bio);
+      if (leakCheck.isLeak) {
+        console.warn("[Safety Guard] Bio contains restricted contact info:", leakCheck.label);
+        return {
+          success: false,
+          error: `Safety Notice: ${leakCheck.label} detected in your Story/Bio. ${leakCheck.reason}`
+        };
+      }
+    }
 
     // Optimistically update React state
     setUserProfile(nextProfile);
@@ -1702,6 +1715,15 @@ export default function App() {
   // Handler to refine profile biography with Gemini
   const handlePolishBio = async () => {
     if (!userProfile || !idToken) return;
+
+    if (userProfile.bio) {
+      const leakCheck = detectPlatformLeakage(userProfile.bio);
+      if (leakCheck.isLeak) {
+        setBioPolishError(`Cannot polish bio: ${leakCheck.label} detected. Please remove contact details before refining.`);
+        return;
+      }
+    }
+
     try {
       setIsPolishingBio(true);
       setBioPolishError("");
@@ -2150,12 +2172,20 @@ export default function App() {
   // Storyroom Handlers
   const handleGenerateStory = async () => {
     if (!idToken) return;
+
+    const finalPrompt = storyPrompt === "custom" ? storyCustomPrompt : storyPrompt;
+    if (finalPrompt) {
+      const leakCheck = detectPlatformLeakage(finalPrompt);
+      if (leakCheck.isLeak) {
+        alert(`⚠️ Safety Notice: ${leakCheck.label} detected in your scenario.\n\n${leakCheck.reason}`);
+        return;
+      }
+    }
+
     try {
       setIsGeneratingStory(true);
       setSavedStorySuccess(false);
       setGeneratedStory("");
-
-      const finalPrompt = storyPrompt === "custom" ? storyCustomPrompt : storyPrompt;
       
       const { ok, data } = await safeJsonFetch("/api/generate-story", {
         method: "POST",
@@ -2579,6 +2609,21 @@ export default function App() {
                       placeholder="Describe how you enjoy slow days, museum walks, or quiet morning reads..."
                       className="w-full bg-amber-50/40 border border-amber-100 rounded-2xl p-4 text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-xs leading-relaxed"
                     />
+                    {(() => {
+                      const leak = userProfile?.bio ? detectPlatformLeakage(userProfile.bio) : { isLeak: false };
+                      if (leak.isLeak) {
+                        return (
+                          <div className="mt-2 flex items-start gap-2 text-xs bg-rose-50 border border-rose-200 p-2.5 rounded-xl text-rose-800 animate-fade-in">
+                            <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                            <div>
+                              <p className="font-bold text-[11px]">⚠️ Contact Information Restricted ({leak.label})</p>
+                              <p className="text-[10px] text-rose-700 leading-tight mt-0.5">{leak.reason}</p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     {bioPolishError && (
                       <p className="text-[11px] text-red-600 mt-1 font-medium bg-red-50 p-2 rounded-lg border border-red-100">
                         {bioPolishError}
@@ -2652,6 +2697,13 @@ export default function App() {
                       if (!userProfile?.name?.trim()) {
                         alert("Please enter your name to complete onboarding.");
                         return;
+                      }
+                      if (userProfile?.bio) {
+                        const leak = detectPlatformLeakage(userProfile.bio);
+                        if (leak.isLeak) {
+                          alert(`⚠️ Safety Notice: ${leak.label} detected in your About Me bio.\n\n${leak.reason}`);
+                          return;
+                        }
                       }
                       setHasOnboarded(true);
                       setActiveTab("gardens");
@@ -3048,13 +3100,24 @@ export default function App() {
                   <button
                     type="button"
                     onClick={async () => {
+                      if (userProfile?.bio) {
+                        const leak = detectPlatformLeakage(userProfile.bio);
+                        if (leak.isLeak) {
+                          setBioPolishError(`Safety Notice: ${leak.label} detected in your Story/Bio. ${leak.reason}`);
+                          alert(`⚠️ Safety Notice: ${leak.label} detected in your Story/Bio.\n\n${leak.reason}`);
+                          return;
+                        }
+                      }
                       const res = await saveUserProfile(userProfile);
                       if (res.success) {
                         setProfileSaveSuccess(true);
                         setTimeout(() => setProfileSaveSuccess(false), 3000);
+                        setProfileViewMode("preview");
+                        scrollToTop("smooth");
+                      } else {
+                        setBioPolishError(res.error || "Failed to save profile.");
+                        alert(res.error || "Failed to save profile.");
                       }
-                      setProfileViewMode("preview");
-                      scrollToTop("smooth");
                     }}
                     className="px-4 py-2 bg-amber-950 hover:bg-amber-900 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                   >
@@ -3275,6 +3338,22 @@ export default function App() {
                     className="w-full bg-amber-50/40 border border-amber-100 rounded-2xl p-4 text-amber-950 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all text-sm leading-relaxed"
                     placeholder="Tell other companions about how you spend slow days, what warms your chest and your hopes..."
                   />
+
+                  {(() => {
+                    const bioLeak = userProfile.bio ? detectPlatformLeakage(userProfile.bio) : { isLeak: false };
+                    if (bioLeak.isLeak) {
+                      return (
+                        <div className="mt-3 flex items-start gap-2 text-xs bg-rose-50 border border-rose-200 p-3 rounded-xl text-rose-800 animate-fade-in">
+                          <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                          <div>
+                            <p className="font-bold">⚠️ Contact Information Restricted ({bioLeak.label})</p>
+                            <p className="text-[11px] text-rose-700 leading-tight mt-0.5">{bioLeak.reason}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {bioPolishError && (
                     <div className="mt-3 flex items-center gap-2 text-xs bg-red-50 border border-red-100 p-3 rounded-xl text-red-800">

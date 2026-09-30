@@ -2374,13 +2374,28 @@ export const StoryroomPanel: React.FC<StoryroomProps> = ({
                   placeholder="e.g., Cooking wood-fired sourdough pizzas in a brick oven during a warm summer evening..."
                   className="w-full h-24 bg-amber-50/20 border border-amber-100 rounded-xl p-3 text-xs text-amber-950 focus:outline-none font-medium resize-none"
                 />
+                {(() => {
+                  const leak = detectPlatformLeakage(storyCustomPrompt);
+                  if (leak.isLeak) {
+                    return (
+                      <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] animate-fade-in">
+                        <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">⚠️ Contact Info Detected ({leak.label})</p>
+                          <p className="text-[10px] text-rose-700 leading-tight mt-0.5">{leak.reason}</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 
             <button
               type="button"
               onClick={handleGenerateStory}
-              disabled={isGeneratingStory || (storyPrompt === "custom" && !storyCustomPrompt.trim())}
+              disabled={isGeneratingStory || (storyPrompt === "custom" && (!storyCustomPrompt.trim() || detectPlatformLeakage(storyCustomPrompt).isLeak))}
               className="w-full py-3.5 bg-blue-700 hover:bg-blue-600 disabled:bg-blue-800/40 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border-none"
             >
               {isGeneratingStory ? (

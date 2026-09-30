@@ -611,7 +611,18 @@ app.post("/api/profile", requireAuth, async (req: AuthRequest, res) => {
     if (occupation !== undefined) updateData.occupation = occupation;
     if (relationshipGoal !== undefined) updateData.relationshipGoal = relationshipGoal;
     if (chapterTheme !== undefined) updateData.chapterTheme = chapterTheme;
-    if (bio !== undefined) updateData.bio = bio;
+    if (bio !== undefined) {
+      if (typeof bio === "string") {
+        const contactCheck = containsContactInfo(bio);
+        if (contactCheck.hasContact) {
+          return res.status(422).json({
+            error: "contact_info_blocked",
+            message: `Posting personal contact details (${contactCheck.type}) in your story/bio is blocked to protect community privacy and security.`
+          });
+        }
+      }
+      updateData.bio = bio;
+    }
     if (interests !== undefined) updateData.interests = Array.isArray(interests) ? interests : [];
     if (values !== undefined) updateData.values = Array.isArray(values) ? values : [];
     if (height !== undefined) updateData.height = height !== null && height !== "" ? Number(height) : null;
@@ -1044,6 +1055,16 @@ Expose the response in JSON format. Use these exact structural fields:
 app.post("/api/generate-bio", requireAuth, async (req: AuthRequest, res) => {
   const { interests, age, goals, currentBio } = req.body;
 
+  if (currentBio && typeof currentBio === "string") {
+    const contactCheck = containsContactInfo(currentBio);
+    if (contactCheck.hasContact) {
+      return res.status(422).json({
+        error: "contact_info_blocked",
+        message: `Personal contact details (${contactCheck.type}) cannot be included when refining your bio. Please keep contact information off your public story.`
+      });
+    }
+  }
+
   const prompt = `Write or polish a gorgeous, dignified, and heartwarming dating profile biography for a senior/mature individual (around age ${age || 60}) looking for their life's "next chapter".
 Interests they mentioned: ${interests?.join(", ") || "reading, quiet walks, travel"}
 Goals for this chapter of life: ${goals || "companionship, friendship, sincere dating"}
@@ -1086,6 +1107,16 @@ Requirements:
 // 9. Co-write custom dating story in the Storyroom
 app.post("/api/generate-story", requireAuth, async (req: AuthRequest, res) => {
   const { companionId, promptScenario, userName, userAge } = req.body;
+
+  if (promptScenario && typeof promptScenario === "string") {
+    const contactCheck = containsContactInfo(promptScenario);
+    if (contactCheck.hasContact) {
+      return res.status(422).json({
+        error: "contact_info_blocked",
+        message: `Co-authoring prompts cannot contain personal contact details (${contactCheck.type}). Please keep external contact details out of the Storyroom.`
+      });
+    }
+  }
 
   const companionsMap: Record<string, string> = {
     arthur: "Arthur, a 68-year-old retired architecture professor who loves classical music, organic gardening, and books",
