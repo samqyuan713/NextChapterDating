@@ -38,6 +38,7 @@ import { Profile, CompatibilityAnalysis, MembershipTier } from "../types";
 import { WeekendConciergeCard } from "./WeekendConciergeCard";
 import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
 import { getCuratedIntroduction } from "../data/mockProfiles";
+import { getCompanionPromptReflection } from "../lib/safetyGuard";
 
 export const HEIGHT_OPTIONS = Array.from({ length: 23 }, (_, i) => 58 + i); // 58 to 80 inches (4'10" to 6'8")
 
@@ -995,6 +996,44 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                       onLockedClick={() => onOpenSubscriptionModal && onOpenSubscriptionModal()}
                     />
                   )}
+
+                  {/* AUTHENTIC PROMPT REFLECTION ICEBREAKER */}
+                  {(() => {
+                    const promptRefl = getCompanionPromptReflection(currentCompanion.id);
+                    if (!promptRefl) return null;
+                    return (
+                      <div className="bg-[#FAF7F2] border border-amber-200/90 rounded-2xl p-4 text-left shadow-2xs space-y-2.5 transition-all">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="text-base">{promptRefl.promptIcon}</span>
+                            <span>{currentCompanion.name}'s Prompt Reflection</span>
+                          </span>
+                          <span className="text-[10px] text-amber-700 font-semibold bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200/60">
+                            {promptRefl.promptCategory}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-semibold text-amber-800 italic">
+                          "{promptRefl.promptTitle}"
+                        </p>
+                        <p className="text-xs sm:text-sm text-amber-950 italic font-serif leading-relaxed pl-3 border-l-2 border-amber-300">
+                          "{promptRefl.reflection}"
+                        </p>
+                        <div className="pt-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedMatch(currentCompanion);
+                              setActiveTab("conversations");
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-amber-950 hover:bg-amber-900 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs hover:scale-102 active:scale-98"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
+                            <span>Reply in 1-on-1 Dialogue</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* KEY BIO-DATA METRICS TILES */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-left">

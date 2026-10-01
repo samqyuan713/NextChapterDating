@@ -2788,13 +2788,13 @@ export default function App() {
                     scrollToTop("smooth");
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                    activeTab === "conversations" || activeTab === "cafe"
+                    activeTab === "conversations"
                       ? "bg-white text-amber-900 shadow-sm border border-amber-100"
                       : "text-amber-800 hover:text-amber-900 hover:bg-white/40"
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Dialogue & Cafe</span>
+                  <span>1-on-1 Dialogue</span>
                 </button>
                 <button
                   id="tab-storyroom"
@@ -2934,12 +2934,12 @@ export default function App() {
                 scrollToTop("instant");
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeTab === "conversations" || activeTab === "cafe"
+                activeTab === "conversations"
                   ? "bg-amber-950 text-white shadow-xs"
                   : "text-amber-900/80 hover:text-amber-950 hover:bg-amber-100/50"
               }`}
             >
-              <MessageSquare className={`w-3.5 h-3.5 ${activeTab === "conversations" || activeTab === "cafe" ? "text-rose-300" : "text-rose-600"}`} />
+              <MessageSquare className={`w-3.5 h-3.5 ${activeTab === "conversations" ? "text-rose-300" : "text-rose-600"}`} />
               <span className="truncate">Dialogue</span>
             </button>
 
@@ -4024,7 +4024,7 @@ export default function App() {
           </div>
         </div>
       )
-    ) : activeTab === "conversations" || activeTab === "cafe" ? (
+    ) : activeTab === "conversations" ? (
           <ConversationCenterPanel
             matches={matches}
             conversations={conversations}
@@ -4044,7 +4044,7 @@ export default function App() {
             isCommentReplying={isCommentReplying}
             handleLikePost={handleLikePost}
             handleCreatePost={handleCreatePost}
-            initialSalonMode={activeTab === "cafe" ? "cafe" : "dialogue"}
+            initialSalonMode="dialogue"
             userProfile={userProfile}
             onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
           />

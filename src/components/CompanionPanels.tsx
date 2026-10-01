@@ -10,7 +10,7 @@ import {
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
 import { filterCompanions } from "../data/mockProfiles";
-import { detectPlatformLeakage, CURATED_DAILY_PROMPTS, CuratedDailyPrompt } from "../lib/safetyGuard";
+import { detectPlatformLeakage, CURATED_DAILY_PROMPTS, CuratedDailyPrompt, getCompanionPromptReflection } from "../lib/safetyGuard";
 import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
 import { audioVoiceService } from "../lib/audioService";
 
@@ -1581,76 +1581,25 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
 
   return (
     <div id="conversations-pane" className="space-y-6 animate-fade-in w-full">
-      {/* Header Bar & Mode Toggle */}
+      {/* Header Bar */}
       <div className="bg-white border border-amber-100 rounded-3xl p-5 md:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-xl md:text-2xl font-serif font-bold text-amber-950 flex items-center gap-2">
             <MessageSquare className="w-6 h-6 text-rose-500" />
-            <span>Dialogue & Community Salon</span>
+            <span>Private 1-on-1 Dialogue</span>
           </h2>
           <p className="text-xs text-amber-700 font-medium">
-            Connect privately with aligned companions or share daily thoughts in our community cafe.
+            Confidential conversations with aligned companions. Connect over heartfelt reflections and authentic life experiences.
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-amber-50/70 p-1.5 rounded-2xl border border-amber-100/80 self-stretch sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setSalonMode("dialogue")}
-            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              salonMode === "dialogue"
-                ? "bg-amber-950 text-white shadow-xs"
-                : "text-amber-800 hover:bg-white/60"
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-rose-300" />
-            <span>Companion Chat</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSalonMode("cafe")}
-            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              salonMode === "cafe"
-                ? "bg-amber-950 text-white shadow-xs"
-                : "text-amber-800 hover:bg-white/60"
-            }`}
-          >
-            <Coffee className="w-3.5 h-3.5 text-orange-400" />
-            <span>Daily Prompt Lounge ☕</span>
-          </button>
+        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
+          <Shield className="w-3.5 h-3.5 text-emerald-600" />
+          <span>100% Private & Protected</span>
         </div>
       </div>
 
-      {salonMode === "cafe" && cafePosts && setNewPostText && handleLikePost && handleCreatePost ? (
-        <CommunityCafePanel
-          cafePosts={cafePosts}
-          newPostText={newPostText || ""}
-          setNewPostText={setNewPostText}
-          isCommentReplying={Boolean(isCommentReplying)}
-          handleLikePost={handleLikePost}
-          handleCreatePost={handleCreatePost}
-          userProfile={userProfile}
-          onOpenSubscriptionModal={onOpenSubscriptionModal}
-          onConnectOneOnOne={(companionId: string, initialPromptText?: string) => {
-            const foundMatch = matches.find(m => 
-              m.id === companionId || 
-              m.name.toLowerCase() === companionId.toLowerCase() ||
-              m.id === `companion-${companionId}`
-            );
-            if (foundMatch) {
-              setSelectedMatch(foundMatch);
-            } else if (matches.length > 0) {
-              setSelectedMatch(matches[0]);
-            }
-            setSalonMode("dialogue");
-            setConversationsMobileTab("chat");
-            if (initialPromptText) {
-              setChatInputValue(initialPromptText);
-            }
-          }}
-        />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
       {/* Mobile View Toggle Bar */}
       <div className="block lg:hidden col-span-1 bg-amber-50/70 p-1 rounded-2xl border border-amber-100/60 shadow-xs mb-1">
         <div className="grid grid-cols-2 gap-1 text-center">
@@ -1880,8 +1829,52 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
             </div>
 
             {conversationMode === "chat" ? (
-              <div className="space-y-6">
-                <div ref={chatBoxRef} className="bg-amber-50/25 border border-amber-100/40 rounded-2xl p-4 h-[380px] overflow-y-auto space-y-3.5">
+              <div className="space-y-4">
+                {/* 1-on-1 Companion Prompt Reflection Icebreaker */}
+                {(() => {
+                  const compReflection = getCompanionPromptReflection(selectedMatch.id);
+                  if (!compReflection) return null;
+                  return (
+                    <div className="bg-gradient-to-r from-amber-50/90 via-[#FAF7F2] to-rose-50/70 border border-amber-200/90 rounded-2xl p-3.5 sm:p-4 text-left shadow-2xs space-y-2 animate-fade-in">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base sm:text-lg">{compReflection.promptIcon}</span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-serif font-bold text-xs sm:text-sm text-amber-950">
+                                {selectedMatch.name}'s Prompt Reflection
+                              </span>
+                              <span className="text-[10px] px-2 py-0.2 rounded-full bg-amber-100/90 text-amber-900 font-semibold border border-amber-300/80">
+                                {compReflection.promptCategory}
+                              </span>
+                            </div>
+                            <p className="text-[10px] sm:text-[11px] text-amber-700 font-medium">
+                              "{compReflection.promptTitle}"
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChatInputValue(`I was really touched by your thought on "${compReflection.promptTitle}". How did that experience shape your next chapter?`);
+                          }}
+                          className="px-2.5 py-1 rounded-xl bg-amber-950 hover:bg-amber-900 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1 hover:scale-102 active:scale-98 shrink-0"
+                          title="Start dialogue with this reflection"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
+                          <span>Reply to reflection</span>
+                        </button>
+                      </div>
+
+                      <p className="text-xs text-amber-950 italic font-serif leading-relaxed pl-3.5 border-l-2 border-amber-400/80">
+                        "{compReflection.reflection}"
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                <div ref={chatBoxRef} className="bg-amber-50/25 border border-amber-100/40 rounded-2xl p-4 h-[350px] overflow-y-auto space-y-3.5">
                   {currentMatchChatHistory.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center text-amber-800/70 space-y-2">
                       <Coffee className="w-9 h-9 text-amber-300 animate-pulse" />
@@ -2027,7 +2020,6 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
         )}
       </div>
     </div>
-  )}
 
   {/* Companion Profile Details Modal Popup */}
   {showProfileModal && selectedMatch && (

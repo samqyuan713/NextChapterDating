@@ -305,5 +305,177 @@ export const CURATED_DAILY_PROMPTS: CuratedDailyPrompt[] = [
         likes: 6
       }
     ]
+  },
+  {
+    id: 'prompt-quiet-passions',
+    category: 'Passions & Arts',
+    title: 'What creative endeavor or craft makes time completely slip away for you?',
+    subtitle: 'From restoring antique woodwork to watercolor painting, pottery, or heirloom cooking.',
+    themeColor: 'from-orange-600 to-amber-700',
+    icon: '🎨',
+    companionResponses: [
+      {
+        companionId: 'frank',
+        companionName: 'Frank',
+        companionAge: 71,
+        companionLocation: 'Savannah, GA',
+        avatarColor: 'from-sky-100 to-blue-200 text-blue-900',
+        avatarEmoji: '⚓',
+        reflection: 'A wooden dock at sunset on Tybee Island listening to the marsh tides roll in with a cup of black coffee. Reminds me of decades flying over open oceans.',
+        publishedTime: '3 days ago',
+        likes: 5
+      },
+      {
+        companionId: 'miriam',
+        companionName: 'Miriam',
+        companionAge: 64,
+        companionLocation: 'Victoria, BC',
+        avatarColor: 'from-rose-100 to-orange-100 text-rose-900',
+        avatarEmoji: '🎭',
+        reflection: 'The quiet backstage greenroom right before the curtains rise on an opening night. Smells like pine rosin, old velvet, and shared nervous laughter.',
+        publishedTime: '3 days ago',
+        likes: 4
+      },
+      {
+        companionId: 'diana',
+        companionName: 'Diana',
+        companionAge: 65,
+        companionLocation: 'Boulder, CO',
+        avatarColor: 'from-emerald-100 to-emerald-200 text-emerald-800',
+        avatarEmoji: '🦉',
+        reflection: 'A secluded aspen clearing near Rocky Mountain National Park at dawn with my camera tripod. Watching elk graze in the frost mist.',
+        publishedTime: '3 days ago',
+        likes: 6
+      },
+      {
+        companionId: 'grace',
+        companionName: 'Grace',
+        companionAge: 67,
+        companionLocation: 'Portland, OR',
+        avatarColor: 'from-amber-100 to-orange-200 text-amber-950',
+        avatarEmoji: '🥐',
+        reflection: 'Our neighborhood community sourdough kitchen at 5:00 AM. The warm hearth and the smell of toasted caraway rye always feels like family.',
+        publishedTime: '4 days ago',
+        likes: 5
+      }
+    ]
+  },
+  {
+    id: 'prompt-life-wisdom',
+    category: 'Life Philosophy',
+    title: 'What truth about love or friendship do you understand much better in this chapter of life?',
+    subtitle: 'On presence, patient listening, authentic comfort, and quiet shared laughter.',
+    themeColor: 'from-teal-600 to-blue-700',
+    icon: '✨',
+    companionResponses: [
+      {
+        companionId: 'sanjay',
+        companionName: 'Sanjay',
+        companionAge: 66,
+        companionLocation: 'San Jose, CA',
+        avatarColor: 'from-amber-100 to-orange-100 text-amber-900',
+        avatarEmoji: '🧘',
+        reflection: 'Early morning yoga on the ghats of Rishikesh as the temple bells echo across the misty river. True companionship is comfortable silence where no words are needed.',
+        publishedTime: '4 days ago',
+        likes: 7
+      },
+      {
+        companionId: 'leo',
+        companionName: 'Leo',
+        companionAge: 59,
+        companionLocation: 'Florence, IT',
+        avatarColor: 'from-amber-100 to-stone-200 text-stone-900',
+        avatarEmoji: '🍷',
+        reflection: 'An outdoor table under wild olive trees in Greve in Chianti with vintage vinyl playing from the open window. Slow food and genuine company.',
+        publishedTime: '4 days ago',
+        likes: 6
+      },
+      {
+        companionId: 'elena',
+        companionName: 'Elena',
+        companionAge: 60,
+        companionLocation: 'San José, CR',
+        avatarColor: 'from-emerald-100 to-teal-100 text-emerald-950',
+        avatarEmoji: '🌿',
+        reflection: 'A quiet rain shower over the cloud forest in Monteverde while playing cello on the veranda. Nature provides the sweetest harmonics.',
+        publishedTime: '5 days ago',
+        likes: 5
+      },
+      {
+        companionId: 'liwei',
+        companionName: 'Li-Wei',
+        companionAge: 68,
+        companionLocation: 'Taipei, TW',
+        avatarColor: 'from-emerald-100 to-amber-100 text-teal-950',
+        avatarEmoji: '🍵',
+        reflection: 'Brewing 20-year aged pu-erh tea with spring mountain water. Watching the amber liquid settle reminds me to enjoy the slow passage of time.',
+        publishedTime: '5 days ago',
+        likes: 6
+      },
+      {
+        companionId: 'ananya',
+        companionName: 'Ananya',
+        companionAge: 57,
+        companionLocation: 'Bangkok, TH',
+        avatarColor: 'from-rose-100 to-orange-100 text-rose-950',
+        avatarEmoji: '🌺',
+        reflection: 'The flower market along the Chao Phraya river before sunrise, selecting fresh jasmine and lotus blooms for traditional garlands. Kindness is a quiet bloom.',
+        publishedTime: '5 days ago',
+        likes: 5
+      }
+    ]
   }
 ];
+
+export interface CompanionPromptReflectionResult {
+  promptId: string;
+  promptTitle: string;
+  promptCategory: string;
+  promptIcon: string;
+  reflection: string;
+  companionName: string;
+  companionAge: number;
+  companionLocation: string;
+  avatarEmoji: string;
+  avatarColor: string;
+}
+
+/**
+ * Returns a companion's authentic prompt reflection for 1-on-1 icebreakers and profile discovery.
+ */
+export function getCompanionPromptReflection(companionId: string): CompanionPromptReflectionResult | null {
+  const normId = companionId.toLowerCase().replace(/^companion-/, "");
+  for (const prompt of CURATED_DAILY_PROMPTS) {
+    const found = prompt.companionResponses.find(
+      (r) => r.companionId.toLowerCase() === normId || r.companionName.toLowerCase() === normId
+    );
+    if (found) {
+      return {
+        promptId: prompt.id,
+        promptTitle: prompt.title,
+        promptCategory: prompt.category,
+        promptIcon: prompt.icon,
+        reflection: found.reflection,
+        companionName: found.companionName,
+        companionAge: found.companionAge,
+        companionLocation: found.companionLocation,
+        avatarEmoji: found.avatarEmoji,
+        avatarColor: found.avatarColor
+      };
+    }
+  }
+
+  // Graceful fallback for any dynamic custom companion
+  return {
+    promptId: 'prompt-morning-peace',
+    promptTitle: 'What simple morning ritual brings you the deepest sense of peace?',
+    promptCategory: 'Morning Reflection',
+    promptIcon: '🌅',
+    reflection: 'Quietly enjoying an early morning brew and listening to the sunrise birds. Taking life at a comfortable pace is the greatest blessing.',
+    companionName: normId.charAt(0).toUpperCase() + normId.slice(1),
+    companionAge: 60,
+    companionLocation: 'Nearby',
+    avatarEmoji: '☕',
+    avatarColor: 'from-amber-100 to-rose-100 text-amber-900'
+  };
+}
