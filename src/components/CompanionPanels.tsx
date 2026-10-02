@@ -1472,6 +1472,7 @@ export const CommunityCafePanel: React.FC<CommunityCafeProps> = ({
 // Component 3: Conversation Center
 interface ConversationCenterProps {
   matches: Profile[];
+  allMatches?: Profile[];
   conversations: Record<string, Message[]>;
   compatibilityReports: Record<string, CompatibilityAnalysis>;
   selectedMatch: Profile | null;
@@ -1492,6 +1493,18 @@ interface ConversationCenterProps {
   initialSalonMode?: "dialogue" | "cafe";
   userProfile?: any;
   onOpenSubscriptionModal?: () => void;
+  searchGender?: string;
+  setSearchGender?: (val: string) => void;
+  searchAgeMin?: number;
+  setSearchAgeMin?: (val: number) => void;
+  searchAgeMax?: number;
+  setSearchAgeMax?: (val: number) => void;
+  onlyShowNearby?: boolean;
+  setOnlyShowNearby?: (val: boolean) => void;
+  nearbyRadiusMiles?: number;
+  setNearbyRadiusMiles?: (val: number) => void;
+  hasActiveCompassFilters?: boolean;
+  handleResetAllFilters?: () => void;
 }
 
 export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
@@ -1515,7 +1528,20 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   handleCreatePost,
   initialSalonMode = "dialogue",
   userProfile,
-  onOpenSubscriptionModal
+  onOpenSubscriptionModal,
+  searchGender,
+  setSearchGender,
+  searchAgeMin,
+  setSearchAgeMin,
+  searchAgeMax,
+  setSearchAgeMax,
+  onlyShowNearby,
+  setOnlyShowNearby,
+  nearbyRadiusMiles,
+  setNearbyRadiusMiles,
+  hasActiveCompassFilters,
+  handleResetAllFilters,
+  allMatches
 }) => {
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const currentMatchChatHistory = selectedMatch ? (conversations[selectedMatch.id] || []) : [];
@@ -1635,14 +1661,97 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
       </div>
 
       <div className={`lg:col-span-4 space-y-4 ${conversationsMobileTab === "list" ? "block" : "hidden lg:block"}`}>
-        <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm">
-          <h2 className="text-xs font-bold text-amber-900 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-            <MessageSquare className="w-4 h-4 text-rose-600" />
-            <span>Conversation Inbox ({matches.length})</span>
-          </h2>
+        <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm space-y-3.5">
+          <div className="flex items-center justify-between pb-1 border-b border-amber-50">
+            <h2 className="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-rose-600" />
+              <span>Matched Inbox ({matches.length})</span>
+            </h2>
+            {allMatches && allMatches.length > matches.length && (
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
+                Filtered from {allMatches.length}
+              </span>
+            )}
+          </div>
 
-          <div className="space-y-2.5 max-h-[550px] overflow-y-auto">
-            {matches.map((companion) => {
+          {/* Quick Filter Bar inside Inbox */}
+          {setSearchGender && (
+            <div className="space-y-2 pt-1 pb-2 border-b border-amber-50 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                  <SlidersHorizontal className="w-3 h-3 text-amber-600" />
+                  <span>Match Filter</span>
+                </span>
+                {hasActiveCompassFilters && handleResetAllFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetAllFilters}
+                    className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                  >
+                    Reset All
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Gender Chips */}
+              <div className="grid grid-cols-3 gap-1 bg-amber-50/70 p-1 rounded-xl border border-amber-100 text-[11px] font-bold text-center">
+                {(["All", "Female", "Male"] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setSearchGender(g)}
+                    className={`py-1 rounded-lg transition-all cursor-pointer ${
+                      (searchGender || "All") === g
+                        ? "bg-amber-950 text-white shadow-2xs"
+                        : "text-amber-800 hover:bg-amber-100/50"
+                    }`}
+                  >
+                    {g === "All" ? "All" : g === "Female" ? "Women" : "Men"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Nearby Distance Filter Toggle if available */}
+              {setOnlyShowNearby !== undefined && (
+                <div className="flex items-center justify-between text-[11px] text-amber-900 pt-0.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium select-none">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(onlyShowNearby)}
+                      onChange={(e) => setOnlyShowNearby(e.target.checked)}
+                      className="rounded text-amber-900 focus:ring-0 cursor-pointer"
+                    />
+                    <span>Nearby only ({nearbyRadiusMiles || 50} mi)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("gardens")}
+                    className="text-[10px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer"
+                  >
+                    Compass Filters →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
+            {matches.length === 0 ? (
+              <div className="p-6 text-center text-amber-800 space-y-3 bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
+                <Search className="w-8 h-8 mx-auto text-amber-400" />
+                <p className="text-xs font-semibold">No companions match your current filter conditions.</p>
+                {handleResetAllFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetAllFilters}
+                    className="px-3 py-1.5 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer shadow-2xs"
+                  >
+                    Show All Companions ({allMatches?.length || 11})
+                  </button>
+                )}
+              </div>
+            ) : (
+              matches.map((companion) => {
               const isSelected = selectedMatch?.id === companion.id;
               const history = conversations[companion.id] || [];
               const lastMsg = history[history.length - 1];
@@ -1700,7 +1809,8 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                   </div>
                 </div>
               );
-            })}
+            })
+          )}
           </div>
         </div>
 

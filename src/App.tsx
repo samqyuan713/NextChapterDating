@@ -915,6 +915,17 @@ export default function App() {
     sortByDistance
   ]);
 
+  // Keep selected companion synced with active filter deck
+  useEffect(() => {
+    if (deckCompanions.length > 0) {
+      if (!selectedMatch || !deckCompanions.some((c) => c.id === selectedMatch.id)) {
+        setSelectedMatch(deckCompanions[0]);
+      }
+    } else if (deckCompanions.length === 0) {
+      setSelectedMatch(null);
+    }
+  }, [deckCompanions]);
+
   const hasActiveCompassFilters = useMemo(() => {
     return (
       (searchGender && searchGender !== "All") ||
@@ -4026,7 +4037,8 @@ export default function App() {
       )
     ) : activeTab === "conversations" ? (
           <ConversationCenterPanel
-            matches={matches}
+            matches={deckCompanions}
+            allMatches={matches}
             conversations={conversations}
             compatibilityReports={compatibilityReports}
             selectedMatch={selectedMatch}
@@ -4047,6 +4059,18 @@ export default function App() {
             initialSalonMode="dialogue"
             userProfile={userProfile}
             onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
+            searchGender={searchGender}
+            setSearchGender={setSearchGender}
+            searchAgeMin={searchAgeMin}
+            setSearchAgeMin={setSearchAgeMin}
+            searchAgeMax={searchAgeMax}
+            setSearchAgeMax={setSearchAgeMax}
+            onlyShowNearby={onlyShowNearby}
+            setOnlyShowNearby={setOnlyShowNearby}
+            nearbyRadiusMiles={nearbyRadiusMiles}
+            setNearbyRadiusMiles={setNearbyRadiusMiles}
+            hasActiveCompassFilters={hasActiveCompassFilters}
+            handleResetAllFilters={handleResetAllFilters}
           />
         ) : activeTab === "storyroom" ? (
           <StoryroomPanel
