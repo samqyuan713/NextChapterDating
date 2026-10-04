@@ -581,7 +581,7 @@ export default function App() {
       // Re-sort matches relative to this resolved user location
       setMatches((prev) => {
         const next = augmentProfilesWithDistance(prev, resolvedLoc.latitude, resolvedLoc.longitude);
-        return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+        return next.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
       });
 
       if (typeof localStorage !== 'undefined') {
@@ -690,7 +690,7 @@ export default function App() {
 
     setMatches((prev) => {
       const next = augmentProfilesWithDistance(prev, nextLat, nextLon);
-      return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+      return next.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
     });
     if (nextProfile.name && nextProfile.name.trim() !== "") {
       setHasOnboarded(true);
@@ -1622,7 +1622,7 @@ export default function App() {
           };
         });
         const augmented = augmentProfilesWithDistance(withCoords, lat, lon);
-        augmented.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+        augmented.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
         setMatches(augmented);
         // Set first companion (nearest to user's location) as default selected
         if (augmented.length > 0) {
@@ -1633,7 +1633,7 @@ export default function App() {
         const lat = userLocation?.latitude ?? 1.3521;
         const lon = userLocation?.longitude ?? 103.8198;
         const augmented = augmentProfilesWithDistance(INITIAL_MATCH_PROFILES, lat, lon);
-        augmented.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+        augmented.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
         setMatches(augmented);
         if (augmented.length > 0) {
           setSelectedMatch(augmented[0]);
@@ -1669,7 +1669,7 @@ export default function App() {
       // Augment existing companion profiles with distance to this new GPS coordinate & sort by proximity
       setMatches((prev) => {
         const next = augmentProfilesWithDistance(prev, coords.latitude, coords.longitude);
-        return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+        return next.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
       });
       setSwipeIndex(0);
 
@@ -1707,7 +1707,7 @@ export default function App() {
     setLocationStatus(`Switched reference location to: ${preset.label}`);
     setMatches((prev) => {
       const next = augmentProfilesWithDistance(prev, preset.latitude, preset.longitude);
-      return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+      return next.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
     });
     setSwipeIndex(0);
 
@@ -3216,7 +3216,7 @@ export default function App() {
                           });
                           setMatches((prev) => {
                             const next = augmentProfilesWithDistance(prev, matched.latitude, matched.longitude);
-                            return next.sort((a, b) => (a.distanceMiles ?? 999999) - (b.distanceMiles ?? 999999));
+                            return next.sort((a, b) => (a.distanceKm ?? a.distanceMiles ?? 999999) - (b.distanceKm ?? b.distanceMiles ?? 999999));
                           });
                         }
                       }}
@@ -3293,7 +3293,7 @@ export default function App() {
                     <div className="mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
                       <span className="text-[10px] font-bold text-amber-850 uppercase tracking-wider">Nearby Search Radius</span>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {[15, 30, 50, 100].map((radius) => (
+                        {[25, 50, 100, 200].map((radius) => (
                           <button
                             key={radius}
                             type="button"
@@ -3307,7 +3307,7 @@ export default function App() {
                                 : "bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100"
                             }`}
                           >
-                            {radius} mi
+                            {radius} km
                           </button>
                         ))}
                       </div>

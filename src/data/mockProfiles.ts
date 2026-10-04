@@ -577,9 +577,10 @@ export function filterCompanions(
       return false;
     }
 
-    // 2. Proximity / Nearby filter
+    // 2. Proximity / Nearby filter (in km)
     if (onlyShowNearby && nearbyRadiusMiles && nearbyRadiusMiles > 0) {
-      if (companion.distanceMiles === undefined || companion.distanceMiles > nearbyRadiusMiles) {
+      const distKm = companion.distanceKm ?? (companion.distanceMiles !== undefined ? companion.distanceMiles * 1.60934 : undefined);
+      if (distKm === undefined || distKm > nearbyRadiusMiles) {
         return false;
       }
     }
@@ -660,8 +661,8 @@ export function filterCompanions(
 
   if (sortByDistance) {
     filtered.sort((a, b) => {
-      const distA = a.distanceMiles !== undefined ? a.distanceMiles : 999999;
-      const distB = b.distanceMiles !== undefined ? b.distanceMiles : 999999;
+      const distA = a.distanceKm !== undefined ? a.distanceKm : (a.distanceMiles !== undefined ? a.distanceMiles * 1.60934 : 999999);
+      const distB = b.distanceKm !== undefined ? b.distanceKm : (b.distanceMiles !== undefined ? b.distanceMiles * 1.60934 : 999999);
       return distA - distB;
     });
   }

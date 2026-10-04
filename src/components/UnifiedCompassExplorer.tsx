@@ -50,9 +50,10 @@ export const formatHeight = (inches: number) => {
 };
 
 export const formatDistance = (miles?: number, km?: number) => {
-  if (miles === undefined || miles === null) return "";
-  if (miles < 1) return "< 1 mile (< 1.6 km)";
-  return `${miles.toFixed(1)} miles (${km !== undefined ? km.toFixed(1) : (miles * 1.60934).toFixed(1)} km)`;
+  const distanceKm = km !== undefined ? km : (miles !== undefined && miles !== null ? miles * 1.60934 : undefined);
+  if (distanceKm === undefined || distanceKm === null) return "";
+  if (distanceKm < 1) return "< 1 km";
+  return `${distanceKm.toFixed(1)} km`;
 };
 
 export const INTERESTS_PRESETS = [
@@ -451,7 +452,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
               >
                 All Distances
               </button>
-              {[15, 30, 50, 100].map((radius) => (
+              {[25, 50, 100, 200].map((radius) => (
                 <button
                   key={radius}
                   type="button"
@@ -466,7 +467,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                       : "bg-amber-50 text-amber-850 hover:bg-amber-100 border border-amber-200/60"
                   }`}
                 >
-                  &lt; {radius} mi
+                  &lt; {radius} km
                 </button>
               ))}
             </div>
@@ -690,7 +691,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
           </div>
           <h3 className="font-serif font-bold text-lg text-amber-950">
             {onlyShowNearby
-              ? `No Companions Found Within ${nearbyRadiusMiles} Miles`
+              ? `No Companions Found Within ${nearbyRadiusMiles} km`
               : "No Companions Match Your Active Criteria"}
           </h3>
           <p className="text-xs text-amber-700 max-w-sm mx-auto">
@@ -708,13 +709,13 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setNearbyRadiusMiles(100);
+                  setNearbyRadiusMiles(200);
                   setOnlyShowNearby(true);
                   setSwipeIndex(0);
                 }}
                 className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all cursor-pointer shadow-xs"
               >
-                Expand to &lt; 100 mi
+                Expand to &lt; 200 km
               </button>
             )}
           </div>

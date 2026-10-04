@@ -678,10 +678,10 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-[10px] font-bold text-emerald-900 uppercase tracking-wider">
                 <span>Maximum Radius</span>
-                <span>{nearbyRadiusMiles > 0 ? `${nearbyRadiusMiles} miles` : "Any distance"}</span>
+                <span>{nearbyRadiusMiles > 0 ? `${nearbyRadiusMiles} km` : "Any distance"}</span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {[15, 30, 50, 100, 250].map((radius) => (
+                {[25, 50, 100, 200, 500].map((radius) => (
                   <button
                     key={radius}
                     type="button"
@@ -695,7 +695,7 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                         : "bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50"
                     }`}
                   >
-                    &lt; {radius} mi
+                    &lt; {radius} km
                   </button>
                 ))}
                 <button
@@ -728,7 +728,7 @@ export const DiscoveryCompassPanel: React.FC<DiscoveryCompassProps> = ({
                   onChange={(e) => setOnlyShowNearby && setOnlyShowNearby(e.target.checked)}
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
                 />
-                <span>Only show matches within {nearbyRadiusMiles} miles</span>
+                <span>Only show matches within {nearbyRadiusMiles} km</span>
               </label>
 
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-amber-950">
@@ -1721,7 +1721,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                       onChange={(e) => setOnlyShowNearby(e.target.checked)}
                       className="rounded text-amber-900 focus:ring-0 cursor-pointer"
                     />
-                    <span>Nearby only ({nearbyRadiusMiles || 50} mi)</span>
+                    <span>Nearby only ({nearbyRadiusMiles || 50} km)</span>
                   </label>
                   <button
                     type="button"
@@ -2208,7 +2208,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                 </span>
                 {selectedMatch.distanceMiles !== undefined && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold text-[10px] border border-emerald-300">
-                    📍 {formatDistance(selectedMatch.distanceMiles, selectedMatch.distanceKm)} away
+                    📍 {formatDistance(selectedMatch.distanceMiles, selectedMatch.distanceKm)}
                   </span>
                 )}
               </div>

@@ -195,7 +195,7 @@ export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
                 </span>
                 <span className="text-amber-400">•</span>
                 <span className="text-amber-700">
-                  Search Radius: {userProfile.searchRadiusMiles || 50} miles
+                  Search Radius: {userProfile.searchRadiusMiles || 50} km
                 </span>
                 {userLocation && (
                   <>
@@ -355,7 +355,7 @@ export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
               Proximity Range
             </span>
             <p className="font-bold text-xs sm:text-sm text-amber-950 mt-0.5">
-              Within {userProfile.searchRadiusMiles || 50} mi
+              Within {userProfile.searchRadiusMiles || 50} km
             </p>
           </div>
 

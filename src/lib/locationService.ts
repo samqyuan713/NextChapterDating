@@ -208,19 +208,12 @@ export function calculateDistance(
  * Formats a distance into a human-friendly Tinder-style distance string
  */
 export function formatDistance(miles?: number, km?: number): string {
-  if (miles === undefined && km === undefined) return "Nearby";
-  if (miles !== undefined) {
-    if (miles < 1) return "< 1 mile away";
-    if (miles === 1) return "1 mile away";
-    if (miles < 100) return `${Math.round(miles)} miles away`;
-    return `${Math.round(miles).toLocaleString()} miles away`;
-  }
-  if (km !== undefined) {
-    if (km < 1) return "< 1 km away";
-    if (km < 100) return `${Math.round(km)} km away`;
-    return `${Math.round(km).toLocaleString()} km away`;
-  }
-  return "Nearby";
+  const distKm = km !== undefined ? km : (miles !== undefined ? miles * 1.60934 : undefined);
+  if (distKm === undefined) return "Nearby";
+  if (distKm < 1) return "< 1 km away";
+  if (Math.round(distKm) === 1) return "1 km away";
+  if (distKm < 100) return `${Math.round(distKm)} km away`;
+  return `${Math.round(distKm).toLocaleString()} km away`;
 }
 
 /**

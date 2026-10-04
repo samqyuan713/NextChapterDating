@@ -210,7 +210,7 @@ export const AdmirersVaultModal: React.FC<AdmirersVaultModalProps> = ({
                           <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>{admirer.location}</span>
                           {admirer.distanceMiles !== undefined && (
-                            <span className="text-amber-500">({admirer.distanceMiles.toFixed(0)} mi)</span>
+                            <span className="text-amber-500">({(admirer.distanceKm !== undefined ? admirer.distanceKm : admirer.distanceMiles * 1.60934).toFixed(0)} km)</span>
                           )}
                         </span>
                       </div>

@@ -135,7 +135,7 @@ export const WeekendConciergeCard: React.FC<WeekendConciergeCardProps> = ({
                   <span>{companion.location}</span>
                   {companion.distanceMiles !== undefined && (
                     <span className="font-semibold text-emerald-800">
-                      • {companion.distanceMiles.toFixed(0)} mi away
+                      • {(companion.distanceKm !== undefined ? companion.distanceKm : companion.distanceMiles * 1.60934).toFixed(0)} km away
                     </span>
                   )}
                 </p>
