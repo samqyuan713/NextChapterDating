@@ -28,7 +28,8 @@ const HEIGHT_OPTIONS = Array.from({ length: 25 }, (_, i) => 54 + i); // 4'6" to 
 function formatHeight(inches: number): string {
   const ft = Math.floor(inches / 12);
   const inch = inches % 12;
-  return `${ft}'${inch}"`;
+  const cm = Math.round(inches * 2.54);
+  return `${ft}'${inch}" (${cm} cm)`;
 }
 
 /**

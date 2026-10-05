@@ -569,7 +569,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 >
                   {HEIGHT_OPTIONS.map((h) => (
                     <option key={h} value={h}>
-                      ≥ {formatHeight(h).split(" ")[0]}
+                      ≥ {formatHeight(h)}
                     </option>
                   ))}
                 </select>
@@ -581,7 +581,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 >
                   {HEIGHT_OPTIONS.map((h) => (
                     <option key={h} value={h}>
-                      ≤ {formatHeight(h).split(" ")[0]}
+                      ≤ {formatHeight(h)}
                     </option>
                   ))}
                 </select>
@@ -1043,7 +1043,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                       <p className="text-xs font-bold text-amber-950 mt-1 flex items-center gap-1">
                         <Ruler className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                         <span>{currentCompanion.age} yrs</span>
-                        {currentCompanion.height && <span>• {formatHeight(currentCompanion.height).split(" ")[0]}</span>}
+                        {currentCompanion.height && <span>• {formatHeight(currentCompanion.height)}</span>}
                       </p>
                     </div>
                     <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">

@@ -132,7 +132,8 @@ const INTERESTS_PRESETS = [
 const formatHeight = (inches: number) => {
   const ft = Math.floor(inches / 12);
   const inch = inches % 12;
-  return `${ft}'${inch}"`;
+  const cm = Math.round(inches * 2.54);
+  return `${ft}'${inch}" (${cm} cm)`;
 };
 
 const HEIGHT_OPTIONS = Array.from({ length: 23 }, (_, i) => 58 + i); // 58 to 80 inches (4'10" to 6'8")
