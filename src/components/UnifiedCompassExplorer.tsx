@@ -143,6 +143,7 @@ export interface UnifiedCompassExplorerProps {
   onOpenVault?: () => void;
   onOpenSubscriptionModal?: () => void;
   admirerCount?: number;
+  setChatInputValue?: (val: string) => void;
 }
 
 export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
@@ -208,7 +209,8 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
   membershipTier = "free",
   onOpenVault,
   onOpenSubscriptionModal,
-  admirerCount = 3
+  admirerCount = 3,
+  setChatInputValue
 }) => {
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
   const [showConciergeCard, setShowConciergeCard] = useState<boolean>(true);
@@ -1024,6 +1026,9 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                             type="button"
                             onClick={() => {
                               setSelectedMatch(currentCompanion);
+                              if (setChatInputValue) {
+                                setChatInputValue(`I was really touched by your thought on "${promptRefl.promptTitle}". How did that experience shape your next chapter?`);
+                              }
                               setActiveTab("conversations");
                             }}
                             className="px-3 py-1.5 rounded-xl bg-amber-950 hover:bg-amber-900 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs hover:scale-102 active:scale-98"

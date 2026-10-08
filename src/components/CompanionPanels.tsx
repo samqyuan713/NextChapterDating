@@ -1553,6 +1553,63 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   const prevMessagesCountRef = useRef(currentMatchChatHistory.length);
   const prevSelectedMatchIdRef = useRef(selectedMatch?.id);
 
+  // Customize Draft & AI Writing Assistant state
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const [showDraftModal, setShowDraftModal] = useState<boolean>(false);
+  const [draftMessage, setDraftMessage] = useState<string>("");
+  const [draftTone, setDraftTone] = useState<"warm" | "intellectual" | "cozy">("warm");
+  const [isPolishingDraft, setIsPolishingDraft] = useState<boolean>(false);
+  const [polishSuccessNotice, setPolishSuccessNotice] = useState<string | null>(null);
+
+  const handlePolishMessage = async (
+    rawText: string,
+    tone: "warm" | "intellectual" | "cozy" = "warm",
+    target: "modal" | "input" = "modal"
+  ) => {
+    if (!rawText.trim() || !selectedMatch) return;
+    setIsPolishingDraft(true);
+    setPolishSuccessNotice(null);
+    try {
+      const activeToken = idToken || `sandbox-token-${currentUser || "guest"}`;
+      const compReflection = getCompanionPromptReflection(selectedMatch.id);
+      const res = await safeJsonFetch("/api/polish-message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${activeToken}`
+        },
+        body: JSON.stringify({
+          currentMessage: rawText,
+          companionName: selectedMatch.name,
+          companionReflection: compReflection ? compReflection.reflection : undefined,
+          tone
+        })
+      });
+      if (res.ok && res.data?.polishedMessage) {
+        if (target === "modal") {
+          setDraftMessage(res.data.polishedMessage);
+        } else {
+          setChatInputValue(res.data.polishedMessage);
+        }
+        setPolishSuccessNotice("✨ Polished with AI writing!");
+        setTimeout(() => setPolishSuccessNotice(null), 3000);
+      }
+    } catch (err) {
+      console.warn("Failed to polish message:", err);
+    } finally {
+      setIsPolishingDraft(false);
+    }
+  };
+
+  const handleOpenCustomizeDraft = (reflectionPromptTitle?: string) => {
+    const starter = reflectionPromptTitle
+      ? `I was really touched by your thought on "${reflectionPromptTitle}". How did that experience shape your next chapter?`
+      : (chatInputValue.trim() || `I was thinking about what you shared, and it truly resonated with me. How has that journey shaped your next chapter?`);
+    setDraftMessage(starter);
+    setDraftTone("warm");
+    setShowDraftModal(true);
+  };
+
   // Default to the top on initial mount or when switching selected match
   useEffect(() => {
     // If selectedMatch changed or initial mount, default strictly to the top
@@ -1965,17 +2022,32 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setChatInputValue(`I was really touched by your thought on "${compReflection.promptTitle}". How did that experience shape your next chapter?`);
-                          }}
-                          className="px-2.5 py-1 rounded-xl bg-amber-950 hover:bg-amber-900 text-white text-[11px] font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1 hover:scale-102 active:scale-98 shrink-0"
-                          title="Start dialogue with this reflection"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
-                          <span>Reply to reflection</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={isCompanionTyping}
+                            onClick={() => {
+                              const replyText = `I was really touched by your thought on "${compReflection.promptTitle}". How did that experience shape your next chapter?`;
+                              handleSendMessage(replyText);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-amber-950 hover:bg-amber-900 disabled:opacity-50 text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5 hover:scale-102 active:scale-98"
+                            title="Send this reflection inquiry directly to companion"
+                          >
+                            <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isCompanionTyping ? "animate-spin" : "fill-amber-300"}`} />
+                            <span>{isCompanionTyping ? "Replying..." : "Reply to reflection"}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleOpenCustomizeDraft(compReflection.promptTitle);
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-100/70 text-amber-900 border border-amber-200 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-98 flex items-center gap-1"
+                            title="Open AI writing assistant to customize and polish your draft"
+                          >
+                            <span>Customize Draft ✏️</span>
+                          </button>
+                        </div>
                       </div>
 
                       <p className="text-xs text-amber-950 italic font-serif leading-relaxed pl-3.5 border-l-2 border-amber-400/80">
@@ -2098,6 +2170,7 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
 
                 <div className="pt-4 border-t border-amber-50 flex items-center gap-2">
                   <input
+                    ref={chatInputRef}
                     type="text"
                     value={chatInputValue}
                     onChange={(e) => setChatInputValue(e.target.value)}
@@ -2108,9 +2181,20 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                     className="flex-1 bg-amber-50/40 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-950 outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white transition-all font-medium"
                   />
                   <button
+                    type="button"
+                    onClick={() => handlePolishMessage(chatInputValue, "warm", "input")}
+                    disabled={!chatInputValue.trim() || isPolishingDraft}
+                    className="py-3 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all cursor-pointer outline-none shrink-0 flex items-center gap-1.5 shadow-2xs disabled:opacity-40"
+                    title="Polish draft with AI writing"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-amber-600 ${isPolishingDraft ? "animate-spin" : "fill-amber-600"}`} />
+                    <span className="hidden sm:inline">{isPolishingDraft ? "Polishing..." : "AI Polish"}</span>
+                  </button>
+                  <button
                     onClick={() => handleSendMessage()}
                     disabled={!chatInputValue.trim() || isCompanionTyping}
                     className="p-3 bg-amber-950 hover:bg-amber-900 disabled:opacity-40 text-white rounded-xl shadow-sm transition-all cursor-pointer outline-none shrink-0"
+                    title="Send message"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -2131,6 +2215,188 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
         )}
       </div>
     </div>
+
+  {/* Customize Draft & AI Writing Polish Modal */}
+  {showDraftModal && selectedMatch && (
+    <div 
+      className="fixed inset-0 bg-amber-950/45 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setShowDraftModal(false);
+      }}
+    >
+      <div className="bg-[#FAF8F5] border border-amber-200 rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+        {/* Modal Header */}
+        <div className="bg-white border-b border-amber-150 p-4 sm:p-5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-10 h-10 rounded-full bg-gradient-to-tr ${selectedMatch.avatarColor} shrink-0 flex items-center justify-center text-xl overflow-hidden relative border border-amber-200 shadow-inner`}>
+              {selectedMatch.photoUrl ? (
+                <img src={selectedMatch.photoUrl} alt={selectedMatch.name} className="w-full h-full object-cover" />
+              ) : (
+                <span>{selectedMatch.avatarEmoji}</span>
+              )}
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-base sm:text-lg text-amber-950 leading-tight flex items-center gap-1.5">
+                <span>Customize Draft for {selectedMatch.name}</span>
+                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+              </h3>
+              <p className="text-[11px] text-amber-700 font-medium">
+                Personalize your message or let AI writing refine the tone
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDraftModal(false)}
+            className="w-8 h-8 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-900 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+          {/* Reflection Context preview */}
+          {(() => {
+            const refl = getCompanionPromptReflection(selectedMatch.id);
+            if (!refl) return null;
+            return (
+              <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-3 text-xs space-y-1 text-left">
+                <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[10px] uppercase tracking-wider">
+                  <span>{refl.promptIcon}</span>
+                  <span>Companion Reflection: "{refl.promptTitle}"</span>
+                </div>
+                <p className="text-amber-950/85 italic font-serif leading-relaxed pl-2 border-l-2 border-amber-300">
+                  "{refl.reflection}"
+                </p>
+              </div>
+            );
+          })()}
+
+          {/* Editable Textarea */}
+          <div className="space-y-1.5 text-left">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1">
+                <span>Your Thoughtful Note</span>
+              </label>
+              {polishSuccessNotice && (
+                <span className="text-[11px] font-bold text-emerald-700 animate-fade-in flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{polishSuccessNotice}</span>
+                </span>
+              )}
+            </div>
+            <textarea
+              value={draftMessage}
+              onChange={(e) => setDraftMessage(e.target.value)}
+              rows={4}
+              placeholder={`Write your heartfelt note to ${selectedMatch.name}...`}
+              className="w-full bg-white border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-950 font-medium outline-none focus:ring-2 focus:ring-amber-300 transition-all leading-relaxed"
+            />
+          </div>
+
+          {/* AI Writing Polish Options */}
+          <div className="space-y-2 bg-[#FAF5EE] border border-amber-200/80 rounded-2xl p-3.5 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 fill-amber-600" />
+                <span>AI Writing Assistant (Select Tone)</span>
+              </span>
+              {isPolishingDraft && (
+                <span className="text-[10px] font-semibold text-amber-700 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin text-amber-600" />
+                  <span>Refining with Gemini...</span>
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                disabled={isPolishingDraft || !draftMessage.trim()}
+                onClick={() => {
+                  setDraftTone("warm");
+                  handlePolishMessage(draftMessage, "warm", "modal");
+                }}
+                className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 text-center ${
+                  draftTone === "warm" && !isPolishingDraft
+                    ? "bg-amber-950 text-white border-amber-950 shadow-xs"
+                    : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100/50"
+                }`}
+              >
+                <span>✨ Warm</span>
+                <span className="text-[9px] font-normal opacity-80">Sincere & Kind</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isPolishingDraft || !draftMessage.trim()}
+                onClick={() => {
+                  setDraftTone("intellectual");
+                  handlePolishMessage(draftMessage, "intellectual", "modal");
+                }}
+                className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 text-center ${
+                  draftTone === "intellectual" && !isPolishingDraft
+                    ? "bg-amber-950 text-white border-amber-950 shadow-xs"
+                    : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100/50"
+                }`}
+              >
+                <span>🏛️ In-Depth</span>
+                <span className="text-[9px] font-normal opacity-80">Reflective Life</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isPolishingDraft || !draftMessage.trim()}
+                onClick={() => {
+                  setDraftTone("cozy");
+                  handlePolishMessage(draftMessage, "cozy", "modal");
+                }}
+                className={`py-2 px-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 text-center ${
+                  draftTone === "cozy" && !isPolishingDraft
+                    ? "bg-amber-950 text-white border-amber-950 shadow-xs"
+                    : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100/50"
+                }`}
+              >
+                <span>☕ Cozy</span>
+                <span className="text-[9px] font-normal opacity-80">Morning Coffee</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="bg-white border-t border-amber-150 p-4 sm:p-5 flex items-center justify-between gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setChatInputValue(draftMessage);
+              setShowDraftModal(false);
+              setTimeout(() => {
+                chatInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                chatInputRef.current?.focus();
+              }, 120);
+            }}
+            className="px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          >
+            Load in Composer 📝
+          </button>
+
+          <button
+            type="button"
+            disabled={!draftMessage.trim() || isCompanionTyping || isPolishingDraft}
+            onClick={() => {
+              setShowDraftModal(false);
+              handleSendMessage(draftMessage);
+            }}
+            className="px-5 py-2.5 rounded-xl bg-amber-950 hover:bg-amber-900 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 hover:scale-102 active:scale-98"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Send to {selectedMatch.name} ✨</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
   {/* Companion Profile Details Modal Popup */}
   {showProfileModal && selectedMatch && (

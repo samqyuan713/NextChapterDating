@@ -4156,6 +4156,7 @@ export default function App() {
             onOpenVault={() => setIsVaultOpen(true)}
             onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
             admirerCount={admirers.length}
+            setChatInputValue={setChatInputValue}
           />
         )}
       </main>

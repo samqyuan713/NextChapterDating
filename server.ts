@@ -1104,6 +1104,75 @@ Requirements:
   }
 });
 
+// 8b. Polish dialogue draft message with Gemini
+app.post("/api/polish-message", requireAuth, async (req: AuthRequest, res) => {
+  const { currentMessage, companionName, companionReflection, tone } = req.body;
+
+  if (currentMessage && typeof currentMessage === "string") {
+    const contactCheck = containsContactInfo(currentMessage);
+    if (contactCheck.hasContact && !req.userDb?.isSubscribed) {
+      return res.status(422).json({
+        error: "contact_info_blocked",
+        message: `Sharing contact details (${contactCheck.type}) is reserved for our Premium Subscribed members. Please upgrade to exchange coordinates.`
+      });
+    }
+  }
+
+  const selectedTone = tone || "warm";
+  let toneInstruction = "Make it heartfelt, sincere, and emotionally mature.";
+  if (selectedTone === "intellectual") {
+    toneInstruction = "Make it thoughtful, curious, and reflective about life philosophies and literature or cultural depth.";
+  } else if (selectedTone === "cozy") {
+    toneInstruction = "Make it lighthearted, relaxed, charming, and easy to answer over a quiet morning coffee.";
+  }
+
+  const prompt = `You are an empathetic, dignified dating dialogue writing assistant for Next Chapter, a warm dating community for mature singles (50+).
+The member is writing a 1-on-1 private message to ${companionName || "their companion"}.
+${companionReflection ? `Context: The companion shared this personal prompt reflection:\n"${companionReflection}"\n` : ""}
+The member's draft thought:
+"${currentMessage || "I was touched by your reflection and wanted to ask about your experience."}"
+
+Instructions:
+- ${toneInstruction}
+- Keep it natural, authentic, dignified, and around 1-3 sentences (30-65 words).
+- End with a warm, open-ended question that makes it effortless and pleasant for ${companionName || "them"} to respond.
+- Do NOT include quotation marks around the output. Only return the polished message text itself.`;
+
+  try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      throw new Error("Gemini offline");
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.7
+      }
+    });
+
+    const polishedText = response.text?.trim().replace(/^["']|["']$/g, "") || currentMessage;
+    res.json({
+      polishedMessage: polishedText,
+      isSimulated: false
+    });
+  } catch (error: any) {
+    console.warn("Gemini Polish Message Error, returning graceful enhanced template:", error);
+    let fallback = currentMessage;
+    if (companionReflection) {
+      fallback = `I was really touched by what you shared about "${companionReflection.slice(0, 45)}...". In this chapter of life, reflections like yours are so rare. How did that moment shape the peace you carry today?`;
+    } else {
+      fallback = `I was thinking about what you mentioned, and it truly resonated with me. How has that experience shaped the path you're creating for your next chapter?`;
+    }
+    res.json({
+      polishedMessage: fallback,
+      isSimulated: true,
+      errorInfo: error.message
+    });
+  }
+});
+
 // 9. Co-write custom dating story in the Storyroom
 app.post("/api/generate-story", requireAuth, async (req: AuthRequest, res) => {
   const { companionId, promptScenario, userName, userAge } = req.body;
