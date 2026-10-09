@@ -18,6 +18,10 @@ export const users = pgTable('users', {
   height: integer('height'),
   weight: integer('weight'),
   gender: text('gender'),
+  educationLevel: text('education_level'),
+  drinking: text('drinking'),
+  smoking: text('smoking'),
+  exercise: text('exercise'),
   isSubscribed: boolean('is_subscribed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -39,6 +43,10 @@ export const companions = pgTable('companions', {
   height: integer('height'),
   weight: integer('weight'),
   gender: text('gender'),
+  educationLevel: text('education_level'),
+  drinking: text('drinking'),
+  smoking: text('smoking'),
+  exercise: text('exercise'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

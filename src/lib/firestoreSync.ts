@@ -26,6 +26,14 @@ export interface SyncedProfile {
   longitude?: number;
   gpsEnabled?: boolean;
   searchRadiusMiles?: number;
+  height?: number;
+  weight?: number;
+  gender?: string;
+  educationLevel?: string;
+  occupation?: string;
+  drinking?: string;
+  smoking?: string;
+  exercise?: string;
   updatedAt?: string;
 }
 
@@ -83,6 +91,30 @@ export async function saveProfileToFirestore(
     }
     if (profile.searchRadiusMiles !== undefined) {
       payload.searchRadiusMiles = Number(profile.searchRadiusMiles);
+    }
+    if (profile.height !== undefined && profile.height !== null) {
+      payload.height = Number(profile.height);
+    }
+    if (profile.weight !== undefined && profile.weight !== null) {
+      payload.weight = Number(profile.weight);
+    }
+    if (profile.gender !== undefined) {
+      payload.gender = profile.gender;
+    }
+    if (profile.educationLevel !== undefined) {
+      payload.educationLevel = profile.educationLevel;
+    }
+    if (profile.occupation !== undefined) {
+      payload.occupation = profile.occupation;
+    }
+    if (profile.drinking !== undefined) {
+      payload.drinking = profile.drinking;
+    }
+    if (profile.smoking !== undefined) {
+      payload.smoking = profile.smoking;
+    }
+    if (profile.exercise !== undefined) {
+      payload.exercise = profile.exercise;
     }
 
     await setDoc(userDocRef, payload, { merge: true });
@@ -155,6 +187,14 @@ export async function fetchProfileFromFirestore(
         longitude: data.longitude !== undefined && data.longitude !== null ? Number(data.longitude) : undefined,
         gpsEnabled: data.gpsEnabled !== undefined ? Boolean(data.gpsEnabled) : undefined,
         searchRadiusMiles: data.searchRadiusMiles !== undefined ? Number(data.searchRadiusMiles) : undefined,
+        height: data.height !== undefined && data.height !== null ? Number(data.height) : undefined,
+        weight: data.weight !== undefined && data.weight !== null ? Number(data.weight) : undefined,
+        gender: data.gender || undefined,
+        educationLevel: data.educationLevel || undefined,
+        occupation: data.occupation || undefined,
+        drinking: data.drinking || undefined,
+        smoking: data.smoking || undefined,
+        exercise: data.exercise || undefined,
         updatedAt: data.updatedAt || undefined
       };
       return { success: true, profile: loaded, docId: docSnap.id };

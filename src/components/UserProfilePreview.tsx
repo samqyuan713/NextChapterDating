@@ -24,7 +24,11 @@ import {
   SlidersHorizontal,
   Eye,
   BadgeAlert,
-  Mail
+  Mail,
+  Ruler,
+  Scale,
+  GraduationCap,
+  Briefcase
 } from "lucide-react";
 import { MembershipTier, VoiceGreeting } from "../types";
 import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
@@ -45,6 +49,13 @@ interface UserProfilePreviewProps {
     voiceGreeting?: VoiceGreeting;
     photoUrl?: string;
     gender?: string;
+    height?: number;
+    weight?: number;
+    educationLevel?: string;
+    occupation?: string;
+    drinking?: string;
+    smoking?: string;
+    exercise?: string;
   };
   membershipTier: MembershipTier;
   emailVerified?: boolean;
@@ -336,6 +347,102 @@ export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
             ) : (
               <p className="text-xs text-amber-700 italic">No hobbies added yet. Click Edit to add some!</p>
             )}
+          </div>
+        </div>
+
+        {/* Essential Bio-Data & Personal Background */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1.5">
+              <User className="w-4 h-4 text-amber-700" />
+              <span>Essential Bio-Data & Lifestyle</span>
+            </h3>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 hover:underline transition-all cursor-pointer"
+            >
+              Edit Bio-Data ✏️
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* Height (inches + cm) */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <Ruler className="w-3.5 h-3.5 text-amber-600" />
+                <span>Height</span>
+              </span>
+              <p className="font-bold text-xs sm:text-sm text-amber-950 mt-1">
+                {userProfile.height
+                  ? `${Math.floor(userProfile.height / 12)}'${userProfile.height % 12}" (${Math.round(userProfile.height * 2.54)} cm)`
+                  : "5'10\" (178 cm)"}
+              </p>
+            </div>
+
+            {/* Weight (lbs + kg) */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <Scale className="w-3.5 h-3.5 text-amber-600" />
+                <span>Weight</span>
+              </span>
+              <p className="font-bold text-xs sm:text-sm text-amber-950 mt-1">
+                {userProfile.weight
+                  ? `${userProfile.weight} lbs (${Math.round(userProfile.weight * 0.453592)} kg)`
+                  : "165 lbs (75 kg)"}
+              </p>
+            </div>
+
+            {/* Education Level */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
+                <span>Education</span>
+              </span>
+              <p className="font-bold text-xs sm:text-sm text-amber-950 mt-1 truncate" title={userProfile.educationLevel || "Master's Degree"}>
+                {userProfile.educationLevel || "Master's Degree"}
+              </p>
+            </div>
+
+            {/* Gender */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-amber-600" />
+                <span>Gender</span>
+              </span>
+              <p className="font-bold text-xs sm:text-sm text-amber-950 mt-1">
+                {userProfile.gender || "Male"}
+              </p>
+            </div>
+
+            {/* Vocation & Life Experience */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs sm:col-span-2">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <Briefcase className="w-3.5 h-3.5 text-amber-600" />
+                <span>Vocation & Experience</span>
+              </span>
+              <p className="font-bold text-xs sm:text-sm text-amber-950 mt-1 truncate" title={userProfile.occupation || "Urban Planner & Heritage Consultant"}>
+                {userProfile.occupation || "Urban Planner & Heritage Consultant"}
+              </p>
+            </div>
+
+            {/* Lifestyle Badges */}
+            <div className="bg-white/90 border border-amber-200/80 rounded-2xl p-3.5 shadow-2xs sm:col-span-2">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block mb-1">
+                Lifestyle Habits
+              </span>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-amber-900">
+                <span className="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200">
+                  🍷 {userProfile.drinking || "Socially"}
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200">
+                  🚭 {userProfile.smoking || "Non-smoker"}
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200">
+                  🌿 {userProfile.exercise || "Daily morning walks"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

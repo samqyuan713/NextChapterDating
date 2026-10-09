@@ -41,6 +41,10 @@ export interface Profile {
   height?: number; // Height in inches (e.g. 71 for 5'11")
   weight?: number; // Weight in lbs (e.g. 175)
   gender?: string; // e.g. "Male" or "Female"
+  educationLevel?: string; // e.g. "Bachelor's Degree", "Master's Degree", etc.
+  drinking?: string; // e.g. "Socially", "Never", "Wine with dinner"
+  smoking?: string; // e.g. "Non-smoker", "Never"
+  exercise?: string; // e.g. "Daily walks", "Active"
   latitude?: number;
   longitude?: number;
   distanceMiles?: number;

@@ -60,7 +60,9 @@ import {
   Volume2,
   Eye,
   ArrowLeft,
-  ShieldAlert
+  ShieldAlert,
+  GraduationCap,
+  Briefcase
 } from "lucide-react";
 import { Profile, Message, Conversation, CompatibilityAnalysis, MembershipTier, VoiceGreeting } from "./types";
 import { DiscoveryCompassPanel, CommunityCafePanel, ConversationCenterPanel, StoryroomPanel } from "./components/CompanionPanels";
@@ -254,6 +256,13 @@ export default function App() {
     voiceGreeting?: VoiceGreeting;
     photoUrl?: string;
     gender?: string;
+    height?: number;
+    weight?: number;
+    educationLevel?: string;
+    occupation?: string;
+    drinking?: string;
+    smoking?: string;
+    exercise?: string;
   }>({
     name: "Sam",
     age: 50,
@@ -265,7 +274,15 @@ export default function App() {
     latitude: 1.3521,
     longitude: 103.8198,
     gpsEnabled: false,
-    searchRadiusMiles: 50
+    searchRadiusMiles: 50,
+    gender: "Male",
+    height: 70, // 5'10" (178 cm)
+    weight: 165, // 165 lbs (75 kg)
+    educationLevel: "Master's Degree",
+    occupation: "Urban Planner & Heritage Consultant",
+    drinking: "Socially",
+    smoking: "Non-smoker",
+    exercise: "Daily morning walks"
   });
 
   // GPS Location & Tinder-style Proximity States
@@ -500,6 +517,14 @@ export default function App() {
           bio: data.profile.bio || "",
           relationshipGoal: data.profile.relationshipGoal || "Companionship & Shared Outings",
           isSubscribed: Boolean(data.profile.isSubscribed),
+          gender: data.profile.gender || "Male",
+          height: data.profile.height ? Number(data.profile.height) : 70,
+          weight: data.profile.weight ? Number(data.profile.weight) : 165,
+          educationLevel: data.profile.educationLevel || "Master's Degree",
+          occupation: data.profile.occupation || "Urban Planner & Heritage Consultant",
+          drinking: data.profile.drinking || "Socially",
+          smoking: data.profile.smoking || "Non-smoker",
+          exercise: data.profile.exercise || "Daily morning walks",
           updatedAt: data.profile.updatedAt || undefined
         };
       }
@@ -665,6 +690,16 @@ export default function App() {
       longitude: nextLon,
       gpsEnabled: updated.gpsEnabled !== undefined ? updated.gpsEnabled : userProfile?.gpsEnabled,
       searchRadiusMiles: updated.searchRadiusMiles !== undefined ? updated.searchRadiusMiles : userProfile?.searchRadiusMiles,
+      gender: updated.gender !== undefined ? updated.gender : (userProfile?.gender || "Male"),
+      height: updated.height !== undefined && updated.height !== null && updated.height !== "" ? Number(updated.height) : (userProfile?.height || 70),
+      weight: updated.weight !== undefined && updated.weight !== null && updated.weight !== "" ? Number(updated.weight) : (userProfile?.weight || 165),
+      educationLevel: updated.educationLevel !== undefined ? updated.educationLevel : (userProfile?.educationLevel || "Master's Degree"),
+      occupation: updated.occupation !== undefined ? updated.occupation : (userProfile?.occupation || ""),
+      drinking: updated.drinking !== undefined ? updated.drinking : (userProfile?.drinking || "Socially"),
+      smoking: updated.smoking !== undefined ? updated.smoking : (userProfile?.smoking || "Non-smoker"),
+      exercise: updated.exercise !== undefined ? updated.exercise : (userProfile?.exercise || "Daily morning walks"),
+      photoUrl: updated.photoUrl !== undefined ? updated.photoUrl : userProfile?.photoUrl,
+      voiceGreeting: updated.voiceGreeting !== undefined ? updated.voiceGreeting : userProfile?.voiceGreeting,
       updatedAt: nowIso
     };
 
@@ -756,6 +791,14 @@ export default function App() {
           bio: data.profile.bio !== undefined ? data.profile.bio : (nextProfile.bio || ""),
           relationshipGoal: data.profile.relationshipGoal || nextProfile.relationshipGoal || "Companionship & Shared Outings",
           isSubscribed: Boolean(data.profile.isSubscribed),
+          gender: data.profile.gender !== undefined ? data.profile.gender : nextProfile.gender,
+          height: data.profile.height !== undefined ? Number(data.profile.height) : nextProfile.height,
+          weight: data.profile.weight !== undefined ? Number(data.profile.weight) : nextProfile.weight,
+          educationLevel: data.profile.educationLevel !== undefined ? data.profile.educationLevel : nextProfile.educationLevel,
+          occupation: data.profile.occupation !== undefined ? data.profile.occupation : nextProfile.occupation,
+          drinking: data.profile.drinking !== undefined ? data.profile.drinking : nextProfile.drinking,
+          smoking: data.profile.smoking !== undefined ? data.profile.smoking : nextProfile.smoking,
+          exercise: data.profile.exercise !== undefined ? data.profile.exercise : nextProfile.exercise,
           latitude: nextProfile.latitude,
           longitude: nextProfile.longitude,
           gpsEnabled: nextProfile.gpsEnabled,
@@ -3312,6 +3355,160 @@ export default function App() {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Essential Bio-Data & Personal Background */}
+                <div className="mt-6 border-t border-amber-50 pt-6 text-left">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="p-1.5 rounded-xl bg-amber-100 text-amber-800">
+                      <User className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h3 className="font-serif font-bold text-base text-amber-950">Essential Bio-Data</h3>
+                      <p className="text-xs text-amber-700">Physical traits, education, and vocation to help compatible partners discover you.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Height */}
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <Ruler className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Height</span>
+                      </label>
+                      <select
+                        value={userProfile.height || 70}
+                        onChange={(e) => setUserProfile({ ...userProfile, height: Number(e.target.value) })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium cursor-pointer"
+                      >
+                        {Array.from({ length: 27 }, (_, i) => 56 + i).map((inch) => (
+                          <option key={inch} value={inch}>
+                            {formatHeight(inch)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Weight */}
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <Scale className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Weight</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          type="number"
+                          min="80"
+                          max="350"
+                          value={userProfile.weight || 165}
+                          onChange={(e) => setUserProfile({ ...userProfile, weight: Number(e.target.value) })}
+                          className="w-full bg-amber-50/40 border border-amber-100 rounded-xl pl-3 pr-20 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium"
+                        />
+                        <span className="absolute right-3 text-[11px] font-semibold text-amber-700 pointer-events-none">
+                          lbs ({userProfile.weight ? Math.round(userProfile.weight * 0.453592) : 75} kg)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Gender */}
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5">Gender</label>
+                      <select
+                        value={userProfile.gender || "Male"}
+                        onChange={(e) => setUserProfile({ ...userProfile, gender: e.target.value })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Non-Binary">Non-Binary / Self-Described</option>
+                      </select>
+                    </div>
+
+                    {/* Education Level */}
+                    <div>
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <GraduationCap className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Education Level</span>
+                      </label>
+                      <select
+                        value={userProfile.educationLevel || "Master's Degree"}
+                        onChange={(e) => setUserProfile({ ...userProfile, educationLevel: e.target.value })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Doctorate / PhD">Doctorate / PhD</option>
+                        <option value="Master's Degree">Master's Degree</option>
+                        <option value="Bachelor's Degree">Bachelor's Degree</option>
+                        <option value="Associate / College Diploma">Associate / College Diploma</option>
+                        <option value="Vocational / Technical Certification">Vocational / Technical Certification</option>
+                        <option value="High School / Preparatory">High School / Preparatory</option>
+                        <option value="Lifelong Independent Scholar">Lifelong Independent Scholar</option>
+                      </select>
+                    </div>
+
+                    {/* Occupation / Vocation */}
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                        <Briefcase className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Vocation & Life Experience</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={userProfile.occupation || ""}
+                        onChange={(e) => setUserProfile({ ...userProfile, occupation: e.target.value })}
+                        placeholder="e.g. Urban Planner & Heritage Consultant, Retired Educator"
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Lifestyle Habits (Drinking, Smoking, Exercise) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-amber-50">
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-850 uppercase tracking-wider mb-1.5">
+                        🍷 Drinking
+                      </label>
+                      <select
+                        value={userProfile.drinking || "Socially"}
+                        onChange={(e) => setUserProfile({ ...userProfile, drinking: e.target.value })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Socially">Socially / Wine with Dinner</option>
+                        <option value="Rarely">Rarely</option>
+                        <option value="Never">Never / Non-Drinker</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-850 uppercase tracking-wider mb-1.5">
+                        🚭 Smoking
+                      </label>
+                      <select
+                        value={userProfile.smoking || "Non-smoker"}
+                        onChange={(e) => setUserProfile({ ...userProfile, smoking: e.target.value })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Non-smoker">Non-Smoker</option>
+                        <option value="Occasional Cigar">Occasional</option>
+                        <option value="Never">Never</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-850 uppercase tracking-wider mb-1.5">
+                        🌿 Exercise & Activity
+                      </label>
+                      <select
+                        value={userProfile.exercise || "Daily morning walks"}
+                        onChange={(e) => setUserProfile({ ...userProfile, exercise: e.target.value })}
+                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 text-xs font-medium cursor-pointer"
+                      >
+                        <option value="Daily morning walks">Daily Morning Walks</option>
+                        <option value="Active / Hikes & Swims">Active / Hikes & Swims</option>
+                        <option value="Yoga & Tai Chi">Yoga & Tai Chi</option>
+                        <option value="Gentle Leisure">Gentle Leisure</option>
+                      </select>
                     </div>
                   </div>
                 </div>
