@@ -896,6 +896,7 @@ export default function App() {
 
   // Partner Search States & Discovery Compass
   const [searchGender, setSearchGender] = useState<string>("All");
+  const [searchEducationLevel, setSearchEducationLevel] = useState<string>("All");
   const [searchAgeMin, setSearchAgeMin] = useState<number>(35);
   const [searchAgeMax, setSearchAgeMax] = useState<number>(85);
   const [searchHeightMin, setSearchHeightMin] = useState<number>(54); // 4'6"
@@ -910,6 +911,7 @@ export default function App() {
   const deckCompanions = useMemo(() => {
     return filterCompanions(matches, {
       searchGender,
+      searchEducationLevel,
       searchAgeMin,
       searchAgeMax,
       searchHeightMin,
@@ -926,6 +928,7 @@ export default function App() {
   }, [
     matches,
     searchGender,
+    searchEducationLevel,
     searchAgeMin,
     searchAgeMax,
     searchHeightMin,
@@ -945,6 +948,7 @@ export default function App() {
     setSwipeIndex(0);
   }, [
     searchGender,
+    searchEducationLevel,
     searchAgeMin,
     searchAgeMax,
     searchHeightMin,
@@ -973,6 +977,7 @@ export default function App() {
   const hasActiveCompassFilters = useMemo(() => {
     return (
       (searchGender && searchGender !== "All") ||
+      (searchEducationLevel && searchEducationLevel !== "All") ||
       (searchKeyword && searchKeyword.trim().length > 0) ||
       searchAgeMin > 35 ||
       searchAgeMax < 85 ||
@@ -985,6 +990,7 @@ export default function App() {
     );
   }, [
     searchGender,
+    searchEducationLevel,
     searchKeyword,
     searchAgeMin,
     searchAgeMax,
@@ -998,6 +1004,7 @@ export default function App() {
 
   const handleResetAllFilters = () => {
     setSearchGender("All");
+    setSearchEducationLevel("All");
     setSearchAgeMin(35);
     setSearchAgeMax(85);
     setSearchHeightMin(54);
@@ -4328,6 +4335,8 @@ export default function App() {
             setSearchWeightMax={setSearchWeightMax}
             searchSelectedHobbies={searchSelectedHobbies}
             setSearchSelectedHobbies={setSearchSelectedHobbies}
+            searchEducationLevel={searchEducationLevel}
+            setSearchEducationLevel={setSearchEducationLevel}
             searchKeyword={searchKeyword}
             setSearchKeyword={setSearchKeyword}
             userProfile={userProfile}

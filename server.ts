@@ -551,6 +551,10 @@ app.get("/api/matches", async (req, res) => {
         return {
           ...staticMatch,
           ...dbComp,
+          educationLevel: dbComp.educationLevel || staticMatch?.educationLevel || "Bachelor's Degree",
+          drinking: dbComp.drinking || staticMatch?.drinking || "Socially",
+          smoking: dbComp.smoking || staticMatch?.smoking || "Never",
+          exercise: dbComp.exercise || staticMatch?.exercise || "Active",
           photoUrl: (dbComp as any).photoUrl || staticMatch?.photoUrl || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1000&q=80",
           voiceGreeting: (dbComp as any).voiceGreeting || staticMatch?.voiceGreeting || {
             profileId: dbComp.id,

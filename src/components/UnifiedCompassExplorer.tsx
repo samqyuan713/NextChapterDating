@@ -29,6 +29,7 @@ import {
   RotateCcw,
   CheckCircle,
   Briefcase,
+  GraduationCap,
   ShieldCheck,
   Crown,
   Unlock,
@@ -104,6 +105,8 @@ export interface UnifiedCompassExplorerProps {
   setCompassFocus: (focus: "all" | "intellectual" | "sports" | "cozy" | "romance") => void;
   searchGender: string;
   setSearchGender: (g: string) => void;
+  searchEducationLevel?: string;
+  setSearchEducationLevel?: (level: string) => void;
   searchAgeMin: number;
   setSearchAgeMin: (min: number) => void;
   searchAgeMax: number;
@@ -171,6 +174,8 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
   setCompassFocus,
   searchGender,
   setSearchGender,
+  searchEducationLevel = "All",
+  setSearchEducationLevel,
   searchAgeMin,
   setSearchAgeMin,
   searchAgeMax,
@@ -219,6 +224,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
   // Active filter count for badge
   const activeFiltersCount =
     (searchGender !== "All" ? 1 : 0) +
+    (searchEducationLevel !== "All" ? 1 : 0) +
     (searchKeyword.trim() ? 1 : 0) +
     (searchAgeMin > 35 || searchAgeMax < 85 ? 1 : 0) +
     (searchHeightMin > 54 || searchHeightMax < 78 ? 1 : 0) +
@@ -491,8 +497,8 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             </button>
           </div>
 
-          {/* Detailed Criteria: Search, Gender, Age, Height, Weight */}
-          <div className="pt-3 border-t border-amber-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Detailed Criteria: Search, Gender, Education, Age, Height */}
+          <div className="pt-3 border-t border-amber-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Keyword Search */}
             <div>
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
@@ -529,6 +535,33 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 <option value="All">All Gentlefolk</option>
                 <option value="Female">Gentlewoman</option>
                 <option value="Male">Gentleman</option>
+              </select>
+            </div>
+
+            {/* Education Level Select */}
+            <div>
+              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <GraduationCap className="w-3 h-3 text-amber-700" />
+                <span>Education Level</span>
+              </label>
+              <select
+                value={searchEducationLevel}
+                onChange={(e) => {
+                  if (setSearchEducationLevel) {
+                    setSearchEducationLevel(e.target.value);
+                  }
+                  setSwipeIndex(0);
+                }}
+                className="w-full bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+              >
+                <option value="All">All Education Levels</option>
+                <option value="Doctorate / PhD">Doctorate / PhD</option>
+                <option value="Master's Degree">Master's Degree</option>
+                <option value="Bachelor's Degree">Bachelor's Degree</option>
+                <option value="Associate / College Diploma">Associate / College Diploma</option>
+                <option value="Vocational / Technical Certification">Vocational / Technical</option>
+                <option value="High School / Preparatory">High School / Prep</option>
+                <option value="Lifelong Independent Scholar">Independent Scholar</option>
               </select>
             </div>
 
@@ -641,6 +674,12 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             {searchGender !== "All" && (
               <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200">
                 {searchGender}
+              </span>
+            )}
+            {searchEducationLevel !== "All" && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-200 inline-flex items-center gap-1">
+                <GraduationCap className="w-3 h-3 text-amber-700" />
+                <span>{searchEducationLevel}</span>
               </span>
             )}
             {(searchAgeMin > 35 || searchAgeMax < 85) && (
@@ -964,6 +1003,12 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                           <Briefcase className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                           <span>{currentCompanion.occupation}</span>
                         </span>
+                        {currentCompanion.educationLevel && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-stone-900/70 backdrop-blur-xs border border-indigo-400/30 text-indigo-200 font-medium">
+                            <GraduationCap className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                            <span>{currentCompanion.educationLevel}</span>
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-950/70 backdrop-blur-xs border border-rose-400/30 text-rose-200 font-medium">
                           <Heart className="w-3.5 h-3.5 fill-rose-300 text-rose-300 shrink-0" />
                           <span>Seeking: {currentCompanion.relationshipGoal}</span>
@@ -1042,7 +1087,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   })()}
 
                   {/* KEY BIO-DATA METRICS TILES */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-left">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 text-left">
                     <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
                       <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">Age & Height</p>
                       <p className="text-xs font-bold text-amber-950 mt-1 flex items-center gap-1">
@@ -1055,6 +1100,15 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                       <p className="text-[10px] uppercase tracking-wider text-amber-600 font-bold">Vocation</p>
                       <p className="text-xs font-bold text-amber-950 mt-1 truncate" title={currentCompanion.occupation}>
                         {currentCompanion.occupation}
+                      </p>
+                    </div>
+                    <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold flex items-center gap-1">
+                        <GraduationCap className="w-3 h-3 text-indigo-600 shrink-0" />
+                        <span>Education</span>
+                      </p>
+                      <p className="text-xs font-bold text-amber-950 mt-1 truncate" title={currentCompanion.educationLevel || "Independent Scholar"}>
+                        {currentCompanion.educationLevel || "Independent Scholar"}
                       </p>
                     </div>
                     <div className="bg-white border border-amber-200/70 rounded-xl p-3 shadow-2xs">

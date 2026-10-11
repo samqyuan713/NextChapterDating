@@ -6,7 +6,8 @@ import {
   Sparkles, Ruler, Scale, ChevronRight, Send, Loader2, CheckCircle2, 
   SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
   Navigation, Radio, LocateFixed, ChevronDown, Target, X,
-  Shield, ShieldAlert, ShieldCheck, Lock, Unlock, ExternalLink, AlertTriangle, Crown, MessageCircle
+  Shield, ShieldAlert, ShieldCheck, Lock, Unlock, ExternalLink, AlertTriangle, Crown, MessageCircle,
+  GraduationCap
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
@@ -2635,8 +2636,8 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
             </div>
           )}
 
-          {/* Physical Metrics & Life Chapter */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {/* Physical Metrics, Education & Life Chapter */}
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-white border border-amber-100 rounded-xl p-2.5">
               <span className="text-[10px] uppercase font-bold text-amber-600 block">Height</span>
               <span className="text-xs font-semibold text-amber-950 flex items-center gap-1 mt-0.5">
@@ -2653,7 +2654,19 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
               </span>
             </div>
 
-            <div className="col-span-2 sm:col-span-1 bg-white border border-amber-100 rounded-xl p-2.5">
+            {selectedMatch.educationLevel && (
+              <div className="bg-white border border-amber-100 rounded-xl p-2.5">
+                <span className="text-[10px] uppercase font-bold text-indigo-600 block flex items-center gap-1">
+                  <GraduationCap className="w-3 h-3 text-indigo-600" />
+                  <span>Education</span>
+                </span>
+                <span className="text-xs font-semibold text-amber-950 truncate block mt-0.5" title={selectedMatch.educationLevel}>
+                  {selectedMatch.educationLevel}
+                </span>
+              </div>
+            )}
+
+            <div className={`bg-white border border-amber-100 rounded-xl p-2.5 ${selectedMatch.educationLevel ? "" : "col-span-2"}`}>
               <span className="text-[10px] uppercase font-bold text-amber-600 block">Life Chapter</span>
               <span className="text-xs font-semibold text-amber-950 truncate block mt-0.5">
                 {selectedMatch.chapterTheme || "New Chapter"}

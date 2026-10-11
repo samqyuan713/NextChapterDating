@@ -172,6 +172,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 62, // 5'2"
     weight: 122,
     gender: "Female",
+    educationLevel: "Associate / College Diploma",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Morning Tai Chi & Walks",
     latitude: 1.3521,
     longitude: 103.8198
   },
@@ -192,6 +196,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 71, // 5'11"
     weight: 175,
     gender: "Male",
+    educationLevel: "Doctorate / PhD",
+    drinking: "Wine with dinner",
+    smoking: "Never",
+    exercise: "Daily garden walks",
     latitude: 42.2314,
     longitude: -88.2570
   },
@@ -212,6 +220,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 66, // 5'6"
     weight: 132,
     gender: "Female",
+    educationLevel: "Master's Degree",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Coastal hikes & Yoga",
     latitude: 37.8591,
     longitude: -122.4853
   },
@@ -232,6 +244,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 73, // 6'1"
     weight: 195,
     gender: "Male",
+    educationLevel: "Bachelor's Degree",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Sailing & Active dock work",
     latitude: 32.0809,
     longitude: -81.0912
   },
@@ -252,6 +268,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 64, // 5'4"
     weight: 140,
     gender: "Female",
+    educationLevel: "Master's Degree",
+    drinking: "Never",
+    smoking: "Never",
+    exercise: "Swimming laps & Tai Chi",
     latitude: 45.5152,
     longitude: -122.6784
   },
@@ -272,6 +292,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 67, // 5'7"
     weight: 135,
     gender: "Female",
+    educationLevel: "Doctorate / PhD",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Snowshoeing & Hiking",
     latitude: 40.0150,
     longitude: -105.2705
   },
@@ -292,6 +316,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 65, // 5'5"
     weight: 125,
     gender: "Female",
+    educationLevel: "Master's Degree",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Kayaking & Yoga",
     latitude: 37.8591,
     longitude: -122.4853
   },
@@ -312,6 +340,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 63, // 5'3"
     weight: 118,
     gender: "Female",
+    educationLevel: "Bachelor's Degree",
+    drinking: "Never",
+    smoking: "Never",
+    exercise: "Gentle walks & Tai Chi",
     latitude: 42.2314,
     longitude: -88.2570
   },
@@ -332,6 +364,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 68, // 5'8"
     weight: 145,
     gender: "Female",
+    educationLevel: "Bachelor's Degree",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Pickleball & Swimming laps",
     latitude: 45.5152,
     longitude: -122.6784
   },
@@ -352,6 +388,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 66, // 5'6"
     weight: 140,
     gender: "Male",
+    educationLevel: "Lifelong Independent Scholar",
+    drinking: "Rarely",
+    smoking: "Never",
+    exercise: "Gardening & Cycling",
     latitude: 35.0116,
     longitude: 135.7681
   },
@@ -372,6 +412,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 69, // 5'9"
     weight: 158,
     gender: "Male",
+    educationLevel: "Master's Degree",
+    drinking: "Never",
+    smoking: "Never",
+    exercise: "Daily Yoga & Pranayama",
     latitude: 19.0760,
     longitude: 72.8777
   },
@@ -392,6 +436,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 71, // 5'11"
     weight: 172,
     gender: "Male",
+    educationLevel: "Vocational / Technical Certification",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Trail running & Yoga",
     latitude: 38.2975,
     longitude: -122.2869
   },
@@ -412,6 +460,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 66, // 5'6"
     weight: 128,
     gender: "Female",
+    educationLevel: "Doctorate / PhD",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Kayaking & Cycling",
     latitude: 30.2672,
     longitude: -97.7431
   },
@@ -432,6 +484,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 73, // 6'1"
     weight: 190,
     gender: "Male",
+    educationLevel: "Vocational / Technical Certification",
+    drinking: "Socially",
+    smoking: "Never",
+    exercise: "Woodcraft & Hiking",
     latitude: 47.6062,
     longitude: -122.3321
   },
@@ -452,6 +508,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 68, // 5'8"
     weight: 154,
     gender: "Male",
+    educationLevel: "Bachelor's Degree",
+    drinking: "Rarely",
+    smoking: "Never",
+    exercise: "Morning Tai Chi",
     latitude: 3.1390,
     longitude: 101.6869
   },
@@ -472,6 +532,10 @@ export const RAW_INITIAL_MATCH_PROFILES: Profile[] = [
     height: 63, // 5'3"
     weight: 121,
     gender: "Female",
+    educationLevel: "Master's Degree",
+    drinking: "Never",
+    smoking: "Never",
+    exercise: "Yoga & Flower walks",
     latitude: 13.7563,
     longitude: 100.5018
   }
@@ -537,6 +601,7 @@ export function augmentProfilesWithDistance(
 
 export interface CompanionFilterCriteria {
   searchGender?: string;
+  searchEducationLevel?: string;
   searchAgeMin?: number;
   searchAgeMax?: number;
   searchHeightMin?: number;
@@ -557,6 +622,7 @@ export function filterCompanions(
 ): Profile[] {
   const {
     searchGender,
+    searchEducationLevel = "All",
     searchAgeMin = 35,
     searchAgeMax = 85,
     searchHeightMin = 54,
@@ -654,6 +720,13 @@ export function filterCompanions(
         });
       });
       if (!matchesAny) return false;
+    }
+
+    // 8. Education Level Filter
+    if (searchEducationLevel && searchEducationLevel !== "All") {
+      if (companion.educationLevel !== searchEducationLevel) {
+        return false;
+      }
     }
 
     return true;
