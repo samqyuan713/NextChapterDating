@@ -703,7 +703,74 @@ app.post("/api/subscribe", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-// 4. Get persistent conversation history for a companion
+// 4. Get persistent conversation history for all companions
+app.get("/api/conversations", requireAuth, async (req: AuthRequest, res) => {
+  if (!req.userDb) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    let allMsgs = await db.select()
+      .from(messages)
+      .where(eq(messages.userId, req.userDb.id))
+      .orderBy(messages.createdAt);
+
+    // If completely empty, seed introductory correspondence with staggered timestamps
+    if (allMsgs.length === 0) {
+      const now = Date.now();
+      const initialSeedList = [
+        { matchId: "arthur", text: WELCOME_MESSAGES.arthur, timeOffset: 34 * 60 * 1000 },
+        { matchId: "evelyn", text: WELCOME_MESSAGES.evelyn, timeOffset: 2.2 * 3600 * 1000 },
+        { matchId: "sanjay", text: WELCOME_MESSAGES.sanjay, timeOffset: 5.5 * 3600 * 1000 },
+        { matchId: "eleanor", text: WELCOME_MESSAGES.eleanor, timeOffset: 21 * 3600 * 1000 },
+        { matchId: "takashi", text: WELCOME_MESSAGES.takashi, timeOffset: 28 * 3600 * 1000 },
+        { matchId: "meiling", text: WELCOME_MESSAGES.meiling, timeOffset: 40 * 3600 * 1000 },
+        { matchId: "frank", text: WELCOME_MESSAGES.frank, timeOffset: 52 * 3600 * 1000 },
+        { matchId: "diana", text: WELCOME_MESSAGES.diana, timeOffset: 76 * 3600 * 1000 }
+      ];
+
+      for (const item of initialSeedList) {
+        try {
+          const itemCreatedAt = new Date(now - item.timeOffset);
+          await db.insert(messages).values({
+            userId: req.userDb.id,
+            matchId: item.matchId,
+            senderId: item.matchId,
+            text: item.text,
+            createdAt: itemCreatedAt
+          });
+        } catch (seedErr) {
+          console.warn(`Could not seed initial message for ${item.matchId}:`, seedErr);
+        }
+      }
+
+      allMsgs = await db.select()
+        .from(messages)
+        .where(eq(messages.userId, req.userDb.id))
+        .orderBy(messages.createdAt);
+    }
+
+    const conversationsMap: Record<string, any[]> = {};
+    for (const msg of allMsgs) {
+      if (!conversationsMap[msg.matchId]) {
+        conversationsMap[msg.matchId] = [];
+      }
+      conversationsMap[msg.matchId].push({
+        id: msg.id.toString(),
+        senderId: msg.senderId,
+        text: msg.text,
+        timestamp: msg.createdAt ? msg.createdAt.toISOString() : new Date().toISOString()
+      });
+    }
+
+    res.json({ status: "success", conversations: conversationsMap });
+  } catch (error) {
+    console.error("Failed to fetch all conversation histories:", error);
+    res.status(500).json({ error: "Failed to load conversations from database" });
+  }
+});
+
+// 4b. Get persistent conversation history for a companion
 app.get("/api/conversations/:matchId", requireAuth, async (req: AuthRequest, res) => {
   const { matchId } = req.params;
   if (!req.userDb) {

@@ -7,7 +7,8 @@ import {
   SlidersHorizontal, User, Disc, Volume2, Play, Pause, Music, Save, Trash2, Plus,
   Navigation, Radio, LocateFixed, ChevronDown, Target, X,
   Shield, ShieldAlert, ShieldCheck, Lock, Unlock, ExternalLink, AlertTriangle, Crown, MessageCircle,
-  GraduationCap
+  GraduationCap, Clock,
+  Mail, MailOpen, Star, Paperclip, ArrowUpDown, Calendar, Inbox, Check
 } from "lucide-react";
 import { Profile, Message, CompatibilityAnalysis } from "../types";
 import { formatDistance, POPULAR_CITY_PRESETS, getPresetsForLocation } from "../lib/locationService";
@@ -15,6 +16,11 @@ import { filterCompanions } from "../data/mockProfiles";
 import { detectPlatformLeakage, CURATED_DAILY_PROMPTS, CuratedDailyPrompt, getCompanionPromptReflection } from "../lib/safetyGuard";
 import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
 import { audioVoiceService } from "../lib/audioService";
+import { 
+  resolveCompanionEmailData, 
+  getCompanionLetter, 
+  EmailInboxItemData 
+} from "../data/companionCorrespondence";
 
 // Constant presets matching App.tsx
 const INTERESTS_PRESETS = [
@@ -76,6 +82,52 @@ export function formatMessageTimestamp(timestampStr: string): string {
     }
   } catch {
     return timestampStr;
+  }
+}
+
+/**
+ * Formats a timestamp concisely for inbox thread previews (e.g. "Just now", "5m ago", "11:19 AM", "Yesterday", "Sep 17").
+ */
+export function formatInboxTimestamp(timestampStr: string): string {
+  try {
+    const d = new Date(timestampStr);
+    if (isNaN(d.getTime())) return "";
+
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+
+    if (diffMin < 1) return "Just now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+
+    if (isToday) {
+      return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      d.getDate() === yesterday.getDate() &&
+      d.getMonth() === yesterday.getMonth() &&
+      d.getFullYear() === yesterday.getFullYear();
+
+    if (isYesterday) {
+      return "Yesterday";
+    }
+
+    const isSameYear = d.getFullYear() === now.getFullYear();
+    return d.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      ...(isSameYear ? {} : { year: "numeric" })
+    });
+  } catch {
+    return "";
   }
 }
 
@@ -1477,6 +1529,7 @@ interface ConversationCenterProps {
   matches: Profile[];
   allMatches?: Profile[];
   conversations: Record<string, Message[]>;
+  setConversations?: React.Dispatch<React.SetStateAction<Record<string, Message[]>>>;
   compatibilityReports: Record<string, CompatibilityAnalysis>;
   selectedMatch: Profile | null;
   setSelectedMatch: (p: Profile) => void;
@@ -1499,8 +1552,8 @@ interface ConversationCenterProps {
   searchGender?: string;
   setSearchGender?: (val: string) => void;
   searchAgeMin?: number;
-  setSearchAgeMin?: (val: number) => void;
   searchAgeMax?: number;
+  setSearchAgeMin?: (val: number) => void;
   setSearchAgeMax?: (val: number) => void;
   onlyShowNearby?: boolean;
   setOnlyShowNearby?: (val: boolean) => void;
@@ -1513,6 +1566,7 @@ interface ConversationCenterProps {
 export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   matches,
   conversations,
+  setConversations,
   compatibilityReports,
   selectedMatch,
   setSelectedMatch,
@@ -1554,6 +1608,156 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const prevMessagesCountRef = useRef(currentMatchChatHistory.length);
   const prevSelectedMatchIdRef = useRef(selectedMatch?.id);
+
+  // Email-style inbox states: search, filter tabs, sorting & starring/read state
+  const [searchMailQuery, setSearchMailQuery] = useState<string>("");
+  const [mailFilterTab, setMailFilterTab] = useState<"all" | "unread" | "starred">("all");
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
+  const [groupByDate, setGroupByDate] = useState<boolean>(true);
+
+  const [starredIds, setStarredIds] = useState<string[]>(() => {
+    try {
+      const saved = typeof localStorage !== "undefined" ? localStorage.getItem("ncd_starred_correspondence") : null;
+      return saved ? JSON.parse(saved) : ["arthur"];
+    } catch {
+      return ["arthur"];
+    }
+  });
+
+  const [readIds, setReadIds] = useState<string[]>(() => {
+    try {
+      const saved = typeof localStorage !== "undefined" ? localStorage.getItem("ncd_read_correspondence") : null;
+      return saved ? JSON.parse(saved) : ["arthur"];
+    } catch {
+      return ["arthur"];
+    }
+  });
+
+  const handleToggleStar = (companionId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setStarredIds((prev) => {
+      const next = prev.includes(companionId) ? prev.filter((id) => id !== companionId) : [...prev, companionId];
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("ncd_starred_correspondence", JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleMarkAsRead = (companionId: string) => {
+    setReadIds((prev) => {
+      if (prev.includes(companionId)) return prev;
+      const next = [...prev, companionId];
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("ncd_read_correspondence", JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+  };
+
+  // Convert each companion into an EmailInboxItemData with authentic subject, email handle, and date/time
+  const emailItems: EmailInboxItemData[] = useMemo(() => {
+    return matches.map((companion) => resolveCompanionEmailData(companion, conversations));
+  }, [matches, conversations]);
+
+  // Filter items by search query & filter tab
+  const filteredEmailItems = useMemo(() => {
+    const q = searchMailQuery.trim().toLowerCase();
+    return emailItems.filter((item) => {
+      // 1. Search Query
+      if (q) {
+        const matchName = item.companion.name.toLowerCase().includes(q);
+        const matchSubject = item.subject.toLowerCase().includes(q);
+        const matchEmail = item.senderEmail.toLowerCase().includes(q);
+        const matchText = item.previewText.toLowerCase().includes(q);
+        const matchLoc = (item.companion.location || "").toLowerCase().includes(q);
+        if (!matchName && !matchSubject && !matchEmail && !matchText && !matchLoc) {
+          return false;
+        }
+      }
+
+      // 2. Tab Filter
+      const isStarred = starredIds.includes(item.companion.id);
+      const isUnread = !readIds.includes(item.companion.id) && !item.isUserLastSender;
+
+      if (mailFilterTab === "unread" && !isUnread) return false;
+      if (mailFilterTab === "starred" && !isStarred) return false;
+
+      return true;
+    });
+  }, [emailItems, searchMailQuery, mailFilterTab, starredIds, readIds]);
+
+  // Sort by Date and Timestamp strictly
+  const sortedEmailItems = useMemo(() => {
+    return [...filteredEmailItems].sort((a, b) => {
+      if (sortDirection === "desc") {
+        return b.timestampMs - a.timestampMs;
+      } else {
+        return a.timestampMs - b.timestampMs;
+      }
+    });
+  }, [filteredEmailItems, sortDirection]);
+
+  // Date sections for "arranged by date and time"
+  const groupedEmailSections = useMemo(() => {
+    const sections: { key: "Today" | "Yesterday" | "This Week" | "Earlier"; label: string; items: EmailInboxItemData[] }[] = [
+      { key: "Today", label: "Today", items: [] },
+      { key: "Yesterday", label: "Yesterday", items: [] },
+      { key: "This Week", label: "This Week", items: [] },
+      { key: "Earlier", label: "Earlier", items: [] }
+    ];
+
+    sortedEmailItems.forEach((item) => {
+      const targetSec = sections.find((s) => s.key === item.dateCategory);
+      if (targetSec) {
+        targetSec.items.push(item);
+      } else {
+        sections[3].items.push(item);
+      }
+    });
+
+    return sections.filter((s) => s.items.length > 0);
+  }, [sortedEmailItems]);
+
+  const unreadCount = useMemo(() => {
+    return emailItems.filter((item) => !readIds.includes(item.companion.id) && !item.isUserLastSender).length;
+  }, [emailItems, readIds]);
+
+  const starredCount = useMemo(() => {
+    return emailItems.filter((item) => starredIds.includes(item.companion.id)).length;
+  }, [emailItems, starredIds]);
+
+  // Resolve selected email item for letterhead in reading pane
+  const selectedEmailData = useMemo(() => {
+    if (!selectedMatch) return null;
+    return resolveCompanionEmailData(selectedMatch, conversations);
+  }, [selectedMatch, conversations]);
+
+  // Handler when selecting an email item
+  const handleSelectEmail = (companion: Profile, itemData: EmailInboxItemData) => {
+    setSelectedMatch(companion);
+    setConversationsMobileTab("chat");
+    handleMarkAsRead(companion.id);
+
+    // If conversation history is currently empty, seed the initial companion welcome letter into conversations
+    if (setConversations && (!conversations[companion.id] || conversations[companion.id].length === 0)) {
+      setConversations((prev) => ({
+        ...prev,
+        [companion.id]: [
+          {
+            id: `seed-${companion.id}-${Date.now()}`,
+            senderId: companion.id,
+            text: itemData.previewText,
+            timestamp: itemData.timestamp
+          }
+        ]
+      }));
+    }
+  };
 
   // Customize Draft & AI Writing Assistant state
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -1762,163 +1966,409 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
       </div>
 
       <div className={`lg:col-span-4 space-y-4 ${conversationsMobileTab === "list" ? "block" : "hidden lg:block"}`}>
-        <div className="bg-white border border-amber-100 rounded-3xl p-5 shadow-sm space-y-3.5">
-          <div className="flex items-center justify-between pb-1 border-b border-amber-50">
-            <h2 className="text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-rose-600" />
-              <span>Matched Inbox ({matches.length})</span>
-            </h2>
-            {allMatches && allMatches.length > matches.length && (
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
-                Filtered from {allMatches.length}
+        <div className="bg-white border border-amber-100 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
+          {/* Email Mailbox Header */}
+          <div className="flex items-center justify-between pb-2 border-b border-amber-100/80 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-950 text-amber-100 flex items-center justify-center shadow-2xs shrink-0">
+                <Mail className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5 font-serif truncate">
+                  <span>Correspondence Mailbox</span>
+                </h2>
+                <p className="text-[10px] text-amber-700 font-medium truncate">
+                  {sortedEmailItems.length} {sortedEmailItems.length === 1 ? "letter" : "letters"} · Arranged by date &amp; time
+                </p>
+              </div>
+            </div>
+
+            {/* Unread Counter Badge */}
+            {unreadCount > 0 && (
+              <span className="flex items-center gap-1 text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-[10px] shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                {unreadCount} unread
               </span>
             )}
           </div>
 
-          {/* Quick Filter Bar inside Inbox */}
-          {setSearchGender && (
-            <div className="space-y-2 pt-1 pb-2 border-b border-amber-50 text-left">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
-                  <SlidersHorizontal className="w-3 h-3 text-amber-600" />
-                  <span>Match Filter</span>
-                </span>
-                {hasActiveCompassFilters && handleResetAllFilters && (
-                  <button
-                    type="button"
-                    onClick={handleResetAllFilters}
-                    className="text-[10px] font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
-                  >
-                    Reset All
-                  </button>
-                )}
-              </div>
+          {/* Mailbox Search Bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-amber-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchMailQuery}
+              onChange={(e) => setSearchMailQuery(e.target.value)}
+              placeholder="Search sender, subject, or message..."
+              className="w-full pl-8 pr-7 py-1.5 text-xs bg-amber-50/50 border border-amber-200/90 rounded-xl text-amber-950 placeholder:text-amber-700/60 focus:outline-none focus:ring-1 focus:ring-amber-400 focus:bg-white transition-all font-medium"
+            />
+            {searchMailQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchMailQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-600 hover:text-amber-950 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
-              {/* Quick Gender Chips */}
-              <div className="grid grid-cols-3 gap-1 bg-amber-50/70 p-1 rounded-xl border border-amber-100 text-[11px] font-bold text-center">
-                {(["All", "Female", "Male"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setSearchGender(g)}
-                    className={`py-1 rounded-lg transition-all cursor-pointer ${
-                      (searchGender || "All") === g
-                        ? "bg-amber-950 text-white shadow-2xs"
-                        : "text-amber-800 hover:bg-amber-100/50"
-                    }`}
-                  >
-                    {g === "All" ? "All" : g === "Female" ? "Women" : "Men"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Nearby Distance Filter Toggle if available */}
-              {setOnlyShowNearby !== undefined && (
-                <div className="flex items-center justify-between text-[11px] text-amber-900 pt-0.5">
-                  <label className="flex items-center gap-1.5 cursor-pointer font-medium select-none">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(onlyShowNearby)}
-                      onChange={(e) => setOnlyShowNearby(e.target.checked)}
-                      className="rounded text-amber-900 focus:ring-0 cursor-pointer"
-                    />
-                    <span>Nearby only ({nearbyRadiusMiles || 50} km)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("gardens")}
-                    className="text-[10px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer"
-                  >
-                    Compass Filters →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2.5 max-h-[500px] overflow-y-auto">
-            {matches.length === 0 ? (
-              <div className="p-6 text-center text-amber-800 space-y-3 bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
-                <Search className="w-8 h-8 mx-auto text-amber-400" />
-                <p className="text-xs font-semibold">No companions match your current filter conditions.</p>
-                {handleResetAllFilters && (
-                  <button
-                    type="button"
-                    onClick={handleResetAllFilters}
-                    className="px-3 py-1.5 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer shadow-2xs"
-                  >
-                    Show All Companions ({allMatches?.length || 11})
-                  </button>
-                )}
-              </div>
-            ) : (
-              matches.map((companion) => {
-              const isSelected = selectedMatch?.id === companion.id;
-              const history = conversations[companion.id] || [];
-              const lastMsg = history[history.length - 1];
-              const companionReport = compatibilityReports[companion.id];
-
-              return (
-                <div
-                  key={companion.id}
-                  onClick={() => setSelectedMatch(companion)}
-                  className={`p-3 rounded-2xl border transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? "bg-amber-50/70 border-amber-200/80 shadow-xs"
-                      : "bg-[#FDFCFB]/80 hover:bg-amber-50/20 border-amber-100/40"
+          {/* Email Filter Tabs & Sorting Toolbar */}
+          <div className="space-y-2 pt-0.5 pb-1 border-b border-amber-100/70">
+            <div className="flex items-center justify-between gap-1 flex-wrap">
+              {/* Folder Tabs */}
+              <div className="flex items-center gap-0.5 bg-amber-50/80 p-0.5 rounded-xl border border-amber-200/70 text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setMailFilterTab("all")}
+                  className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
+                    mailFilterTab === "all"
+                      ? "bg-amber-950 text-white shadow-2xs"
+                      : "text-amber-800 hover:bg-amber-100/60"
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-11 h-11 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-xl border border-white/70 shadow-inner overflow-hidden relative`}>
-                      {companion.photoUrl ? (
-                        <img
-                          src={companion.photoUrl}
-                          alt={companion.name}
-                          className="w-full h-full object-cover object-center"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = "none";
-                          }}
-                        />
-                      ) : null}
-                      <span className={`${companion.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}`}>
-                        {companion.avatarEmoji}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="font-serif font-bold text-amber-950 text-sm leading-none truncate">
-                          {companion.name}, <span className="font-sans text-xs font-semibold">{companion.age}</span>
-                        </h4>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {lastMsg && (
-                            <span className="text-[10px] text-amber-700 font-medium">
-                              {formatMessageTimestamp(lastMsg.timestamp).split(",")[0]}
+                  All ({emailItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMailFilterTab("unread")}
+                  className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                    mailFilterTab === "unread"
+                      ? "bg-amber-950 text-white shadow-2xs"
+                      : "text-amber-800 hover:bg-amber-100/60"
+                  }`}
+                >
+                  <span>Unread</span>
+                  {unreadCount > 0 && <span className="text-[9px] opacity-90">({unreadCount})</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMailFilterTab("starred")}
+                  className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                    mailFilterTab === "starred"
+                      ? "bg-amber-950 text-white shadow-2xs"
+                      : "text-amber-800 hover:bg-amber-100/60"
+                  }`}
+                >
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  <span>Starred</span>
+                  {starredCount > 0 && <span className="text-[9px] opacity-90">({starredCount})</span>}
+                </button>
+              </div>
+
+              {/* Date Sorting Order & Grouping Controls */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))}
+                  className="px-2 py-1 bg-white border border-amber-200/80 hover:bg-amber-50 rounded-lg text-[10px] font-semibold text-amber-900 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="Toggle sort order by date & timestamp"
+                >
+                  <ArrowUpDown className="w-3 h-3 text-amber-600" />
+                  <span>{sortDirection === "desc" ? "Newest First" : "Oldest First"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupByDate((prev) => !prev)}
+                  className={`px-2 py-1 border rounded-lg text-[10px] font-semibold transition-colors flex items-center gap-1 cursor-pointer shadow-2xs ${
+                    groupByDate
+                      ? "bg-amber-100/70 border-amber-300 text-amber-950"
+                      : "bg-white border-amber-200/80 text-amber-700 hover:bg-amber-50"
+                  }`}
+                  title="Group letters by Day (Today, Yesterday, etc.)"
+                >
+                  <Calendar className="w-3 h-3 text-amber-600" />
+                  <span>{groupByDate ? "By Day" : "Flat"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Gender / Reset criteria when active */}
+            {hasActiveCompassFilters && handleResetAllFilters && (
+              <div className="flex items-center justify-between text-[10px] text-amber-800 pt-0.5">
+                <span className="text-amber-700">Filter active</span>
+                <button
+                  type="button"
+                  onClick={handleResetAllFilters}
+                  className="font-bold text-rose-600 hover:text-rose-800 underline cursor-pointer"
+                >
+                  Reset Match Filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mailbox Letters Stream */}
+          <div className="space-y-3 max-h-[520px] overflow-y-auto pr-0.5">
+            {sortedEmailItems.length === 0 ? (
+              <div className="p-6 text-center text-amber-800 space-y-3 bg-amber-50/40 rounded-2xl border border-dashed border-amber-200">
+                <Inbox className="w-8 h-8 mx-auto text-amber-400" />
+                <p className="text-xs font-semibold">No letters match this view or search.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchMailQuery("");
+                    setMailFilterTab("all");
+                    if (handleResetAllFilters) handleResetAllFilters();
+                  }}
+                  className="px-3 py-1.5 bg-amber-950 text-white rounded-xl text-xs font-bold hover:bg-amber-900 transition-all cursor-pointer shadow-2xs"
+                >
+                  Show All Correspondence
+                </button>
+              </div>
+            ) : groupByDate ? (
+              groupedEmailSections.map((section) => (
+                <div key={section.key} className="space-y-2">
+                  {/* Date Section Header Divider */}
+                  <div className="flex items-center gap-2 pt-2 pb-0.5 px-1 select-none">
+                    <span className="text-[10px] font-bold text-amber-900 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-700"></span>
+                      <span>{section.label}</span>
+                    </span>
+                    <div className="flex-1 h-px bg-amber-200/60" />
+                    <span className="text-[9px] text-amber-700/80 font-medium font-mono">
+                      {section.items.length} {section.items.length === 1 ? "letter" : "letters"}
+                    </span>
+                  </div>
+
+                  {/* Letters in this date group */}
+                  <div className="space-y-2">
+                    {section.items.map((item) => {
+                      const companion = item.companion;
+                      const isSelected = selectedMatch?.id === companion.id;
+                      const isStarred = starredIds.includes(companion.id);
+                      const isUnread = !readIds.includes(companion.id) && !item.isUserLastSender;
+                      const companionReport = compatibilityReports[companion.id];
+
+                      return (
+                        <div
+                          key={companion.id}
+                          onClick={() => handleSelectEmail(companion, item)}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer text-left relative ${
+                            isSelected
+                              ? "bg-[#FFFDF9] border-amber-300 ring-1 ring-amber-200/80 shadow-xs border-l-4 border-l-amber-950"
+                              : isUnread
+                              ? "bg-white hover:bg-amber-50/40 border-amber-200/90 shadow-2xs font-medium"
+                              : "bg-[#FDFCFB]/80 hover:bg-amber-50/30 border-amber-100/60 shadow-2xs"
+                          }`}
+                        >
+                          {/* Top Row: Sender & Timestamp */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {/* Unread dot vs Read MailOpen */}
+                              {isUnread ? (
+                                <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" title="Unread letter" />
+                              ) : (
+                                <span title="Read letter" className="shrink-0 flex items-center">
+                                  <MailOpen className="w-3 h-3 text-amber-500/80" />
+                                </span>
+                              )}
+
+                              {/* Avatar thumbnail */}
+                              <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-xs overflow-hidden border border-white shadow-2xs relative`}>
+                                {companion.photoUrl ? (
+                                  <img
+                                    src={companion.photoUrl}
+                                    alt={companion.name}
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLElement).style.display = "none";
+                                    }}
+                                  />
+                                ) : null}
+                                <span className={companion.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}>
+                                  {companion.avatarEmoji}
+                                </span>
+                              </div>
+
+                              {/* Sender Name */}
+                              <span className={`font-serif text-xs truncate ${isUnread ? "font-bold text-amber-950" : "font-semibold text-amber-900"}`}>
+                                {companion.name}
+                              </span>
+
+                              {/* Sender Email Address */}
+                              <span className="text-[10px] text-amber-600/70 font-mono truncate hidden sm:inline">
+                                &lt;{item.senderEmail}&gt;
+                              </span>
+                            </div>
+
+                            {/* Right side: Star & Exact Date/Time Stamp */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => handleToggleStar(companion.id, e)}
+                                className="p-0.5 text-amber-400 hover:text-amber-600 transition-colors cursor-pointer"
+                                title={isStarred ? "Starred letter" : "Star letter"}
+                              >
+                                <Star className={`w-3.5 h-3.5 ${isStarred ? "fill-amber-400 text-amber-500" : "text-amber-300 hover:text-amber-500"}`} />
+                              </button>
+                              <span className={`text-[10px] font-mono shrink-0 ${isUnread ? "font-bold text-amber-950" : "font-medium text-amber-700"}`}>
+                                {item.formattedDisplay}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Subject Line */}
+                          <div className="mt-1 flex items-baseline gap-1.5 min-w-0">
+                            <span className="text-[10px] uppercase font-bold text-amber-700/80 font-mono shrink-0">
+                              Subject:
                             </span>
-                          )}
-                          {companionReport && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 font-bold">
-                              {companionReport.matchScore}%
+                            <span className={`text-xs truncate ${isUnread ? "font-bold text-amber-950" : "font-medium text-amber-900"}`}>
+                              {item.subject}
                             </span>
-                          )}
+                          </div>
+
+                          {/* Excerpt Body Preview */}
+                          <p className="text-[11px] text-amber-900/80 line-clamp-2 leading-relaxed mt-1 font-normal">
+                            {item.previewText}
+                          </p>
+
+                          {/* Footer Meta (Zero-Pill) */}
+                          <div className="mt-2 pt-1.5 border-t border-amber-50/80 flex items-center justify-between text-[10px] text-amber-700/80">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span>{companion.location}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{companion.age} yrs</span>
+                              {companionReport && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="font-semibold text-emerald-800">{companionReport.matchScore}% Match</span>
+                                </>
+                              )}
+                            </div>
+                            <span className="shrink-0 font-medium">
+                              {item.isUserLastSender ? "You replied ↩" : isUnread ? "New letter ✉" : "Read"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <p className="text-[11px] text-amber-900 font-medium truncate mt-1">
-                        {lastMsg ? lastMsg.text : companion.relationshipGoal}
-                      </p>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })
-          )}
+              ))
+            ) : (
+              <div className="space-y-2">
+                {sortedEmailItems.map((item) => {
+                  const companion = item.companion;
+                  const isSelected = selectedMatch?.id === companion.id;
+                  const isStarred = starredIds.includes(companion.id);
+                  const isUnread = !readIds.includes(companion.id) && !item.isUserLastSender;
+                  const companionReport = compatibilityReports[companion.id];
+
+                  return (
+                    <div
+                      key={companion.id}
+                      onClick={() => handleSelectEmail(companion, item)}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer text-left relative ${
+                        isSelected
+                          ? "bg-[#FFFDF9] border-amber-300 ring-1 ring-amber-200/80 shadow-xs border-l-4 border-l-amber-950"
+                          : isUnread
+                          ? "bg-white hover:bg-amber-50/40 border-amber-200/90 shadow-2xs font-medium"
+                          : "bg-[#FDFCFB]/80 hover:bg-amber-50/30 border-amber-100/60 shadow-2xs"
+                      }`}
+                    >
+                      {/* Top Row: Sender & Timestamp */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {isUnread ? (
+                            <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" title="Unread letter" />
+                          ) : (
+                            <span title="Read letter" className="shrink-0 flex items-center">
+                              <MailOpen className="w-3 h-3 text-amber-500/80" />
+                            </span>
+                          )}
+
+                          <div className={`w-6 h-6 rounded-full bg-gradient-to-tr ${companion.avatarColor} shrink-0 flex items-center justify-center text-xs overflow-hidden border border-white shadow-2xs relative`}>
+                            {companion.photoUrl ? (
+                              <img
+                                src={companion.photoUrl}
+                                alt={companion.name}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : null}
+                            <span className={companion.photoUrl ? "absolute inset-0 flex items-center justify-center -z-10" : ""}>
+                              {companion.avatarEmoji}
+                            </span>
+                          </div>
+
+                          <span className={`font-serif text-xs truncate ${isUnread ? "font-bold text-amber-950" : "font-semibold text-amber-900"}`}>
+                            {companion.name}
+                          </span>
+
+                          <span className="text-[10px] text-amber-600/70 font-mono truncate hidden sm:inline">
+                            &lt;{item.senderEmail}&gt;
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleStar(companion.id, e)}
+                            className="p-0.5 text-amber-400 hover:text-amber-600 transition-colors cursor-pointer"
+                            title={isStarred ? "Starred letter" : "Star letter"}
+                          >
+                            <Star className={`w-3.5 h-3.5 ${isStarred ? "fill-amber-400 text-amber-500" : "text-amber-300 hover:text-amber-500"}`} />
+                          </button>
+                          <span className={`text-[10px] font-mono shrink-0 ${isUnread ? "font-bold text-amber-950" : "font-medium text-amber-700"}`}>
+                            {item.formattedDisplay}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Subject Line */}
+                      <div className="mt-1 flex items-baseline gap-1.5 min-w-0">
+                        <span className="text-[10px] uppercase font-bold text-amber-700/80 font-mono shrink-0">
+                          Subject:
+                        </span>
+                        <span className={`text-xs truncate ${isUnread ? "font-bold text-amber-950" : "font-medium text-amber-900"}`}>
+                          {item.subject}
+                        </span>
+                      </div>
+
+                      {/* Excerpt Body Preview */}
+                      <p className="text-[11px] text-amber-900/80 line-clamp-2 leading-relaxed mt-1 font-normal">
+                        {item.previewText}
+                      </p>
+
+                      {/* Footer Meta */}
+                      <div className="mt-2 pt-1.5 border-t border-amber-50/80 flex items-center justify-between text-[10px] text-amber-700/80">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span>{companion.location}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>{companion.age} yrs</span>
+                          {companionReport && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="font-semibold text-emerald-800">{companionReport.matchScore}% Match</span>
+                            </>
+                          )}
+                        </div>
+                        <span className="shrink-0 font-medium">
+                          {item.isUserLastSender ? "You replied ↩" : isUnread ? "New letter ✉" : "Read"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="bg-[#FAF5EE] border border-amber-100/80 rounded-3xl p-5 shadow-sm text-amber-900/95 space-y-2">
-          <h4 className="font-serif font-bold text-sm text-amber-950">Mindful Dialogue</h4>
-          <p className="text-[11px] leading-relaxed font-medium">
-            Deep connections take root when we ask about personal values, morning rituals, and favorite book chapters. Use the Sparks below to enrich your dialogue!
+        {/* Mindful Correspondence Callout */}
+        <div className="bg-[#FAF5EE] border border-amber-100/80 rounded-3xl p-4 sm:p-5 shadow-sm text-amber-900/95 space-y-1.5 text-left">
+          <h4 className="font-serif font-bold text-xs text-amber-950 flex items-center gap-1.5">
+            <BookOpen className="w-3.5 h-3.5 text-amber-700" />
+            <span>Epistolary Dating Etiquette</span>
+          </h4>
+          <p className="text-[11px] leading-relaxed text-amber-900/85">
+            In Next Chapter, every message is an authentic letter. Take your time to read their reflections and reply with unhurried warmth.
           </p>
         </div>
       </div>
@@ -1934,9 +2384,43 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-2xl border border-amber-200 text-xs transition-all cursor-pointer shadow-xs animate-fade-in"
               >
                 <ChevronRight className="w-4 h-4 rotate-180 text-amber-700" />
-                <span>Back to Inbox List</span>
+                <span>Back to Correspondence Mailbox</span>
               </button>
             </div>
+
+            {/* Email Reading Pane Letterhead Banner */}
+            {selectedEmailData && (
+              <div className="bg-[#FAF7F2] border border-amber-200/90 rounded-2xl p-3.5 sm:p-4 text-left shadow-2xs space-y-1.5 animate-fade-in">
+                <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 font-mono">From:</span>
+                      <span className="font-serif font-bold text-amber-950">{selectedMatch.name}</span>
+                      <span className="text-amber-600 font-mono text-[11px]">&lt;{selectedEmailData.senderEmail}&gt;</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className="text-[10px] uppercase font-bold text-amber-800 font-mono">Subject:</span>
+                      <span className="font-semibold text-amber-950">{selectedEmailData.subject}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-700 font-medium font-mono">
+                      <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>Received: {selectedEmailData.formattedDate} at {selectedEmailData.formattedTime}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleStar(selectedMatch.id, e)}
+                      className="px-2.5 py-1 bg-white border border-amber-200/90 rounded-xl text-[11px] font-semibold text-amber-900 hover:bg-amber-50 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                      title={starredIds.includes(selectedMatch.id) ? "Starred letter" : "Star letter"}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${starredIds.includes(selectedMatch.id) ? "fill-amber-400 text-amber-500" : "text-amber-400"}`} />
+                      <span>{starredIds.includes(selectedMatch.id) ? "Starred" : "Star"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center justify-between border-b border-amber-50 pb-4 gap-3 flex-wrap sm:flex-nowrap">
               <div 
@@ -2356,6 +2840,22 @@ export const ConversationCenterPanel: React.FC<ConversationCenterProps> = ({
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
+
+                {polishSuccessNotice && (
+                  <div className="pt-1 flex items-center justify-between text-[11px] font-semibold text-emerald-800 bg-emerald-50/90 border border-emerald-200 rounded-xl px-3 py-1.5 animate-fade-in shadow-2xs">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>{polishSuccessNotice}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPolishSuccessNotice(null)}
+                      className="text-emerald-700 hover:text-emerald-950 text-[10px] underline ml-2 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <MelodyVinylLounge 

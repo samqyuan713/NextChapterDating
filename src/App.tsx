@@ -1227,6 +1227,41 @@ export default function App() {
     }
   }, [storyCollection, currentUser]);
 
+  // Load all conversation histories across companions to ensure inbox displays up-to-date message timestamps
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchAllConversations = async () => {
+      const savedEmail = (typeof localStorage !== 'undefined' ? localStorage.getItem("saved_user_email") : null);
+      const userIdentifier = fbUser?.email || savedEmail || fbUser?.uid || currentUser;
+      const activeToken = idToken || `sandbox-token-${userIdentifier}`;
+      try {
+        const { ok, data } = await safeJsonFetch("/api/conversations", {
+          headers: {
+            "Authorization": `Bearer ${activeToken}`
+          }
+        });
+        if (ok && data && data.conversations) {
+          setConversations((prev) => {
+            const next = { ...prev };
+            Object.entries(data.conversations as Record<string, Message[]>).forEach(([mId, msgs]) => {
+              const current = next[mId] || [];
+              const map = new Map<string, Message>();
+              current.forEach((m) => map.set(m.id, m));
+              msgs.forEach((m) => map.set(m.id, m));
+              next[mId] = Array.from(map.values()).sort(
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              );
+            });
+            return next;
+          });
+        }
+      } catch (err) {
+        console.warn("Could not pre-fetch all conversation histories:", err);
+      }
+    };
+    fetchAllConversations();
+  }, [currentUser, idToken, fbUser]);
+
   // HYBRID DATA ARCHITECTURE: Synchronize and load chat history and compatibility report
   // Directly connects to Firebase Cloud Firestore for instant cross-device mobile/computer sync,
   // and mirrors to PostgreSQL (Cloud SQL) whenever reachable.
@@ -4245,6 +4280,7 @@ export default function App() {
             matches={deckCompanions}
             allMatches={matches}
             conversations={conversations}
+            setConversations={setConversations}
             compatibilityReports={compatibilityReports}
             selectedMatch={selectedMatch}
             setSelectedMatch={setSelectedMatch}
