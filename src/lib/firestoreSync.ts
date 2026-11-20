@@ -316,6 +316,35 @@ export async function fetchMessagesFromFirestore(
 }
 
 /**
+ * Fetches all saved conversation threads from Firestore across all known companion IDs.
+ * Ensures the Inbox shows the true latest message and timestamp even for messages synced offline or via mobile.
+ */
+export async function fetchAllConversationsFromFirestore(
+  emailOrUid: string,
+  matchIds: string[]
+): Promise<{ success: boolean; conversations: Record<string, Message[]>; error?: string }> {
+  try {
+    const conversationsMap: Record<string, Message[]> = {};
+    await Promise.all(
+      matchIds.map(async (matchId) => {
+        try {
+          const res = await fetchMessagesFromFirestore(emailOrUid, matchId);
+          if (res.success && res.messages.length > 0) {
+            conversationsMap[matchId] = res.messages;
+          }
+        } catch (innerErr) {
+          console.warn(`[Firestore] Skipped conversation preload for ${matchId}:`, innerErr);
+        }
+      })
+    );
+    return { success: true, conversations: conversationsMap };
+  } catch (err: any) {
+    console.error("[Firestore] fetchAllConversationsFromFirestore failed:", err);
+    return { success: false, conversations: {}, error: err?.message || "Failed to load conversations from Firestore" };
+  }
+}
+
+/**
  * Subscribes to real-time message changes for a given match in Firestore.
  * Listens across alias conversations to guarantee live sync between mobile and desktop.
  */

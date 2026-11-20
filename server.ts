@@ -783,15 +783,35 @@ app.get("/api/conversations/:matchId", requireAuth, async (req: AuthRequest, res
       .where(and(eq(messages.userId, req.userDb.id), eq(messages.matchId, matchId)))
       .orderBy(messages.createdAt);
 
-    // Seed conversation with default welcome message if it is completely empty
+    // Seed conversation with default welcome message (staggered correspondence offset) if empty
     if (historyList.length === 0) {
       const welcomeText = WELCOME_MESSAGES[matchId] || "Hello, I am looking forward to our next chapter together!";
+      const DEFAULT_OFFSETS_MS: Record<string, number> = {
+        arthur: 34 * 60 * 1000,
+        evelyn: 2.2 * 3600 * 1000,
+        sanjay: 5.5 * 3600 * 1000,
+        eleanor: 21 * 3600 * 1000,
+        takashi: 28 * 3600 * 1000,
+        meiling: 40 * 3600 * 1000,
+        frank: 52 * 3600 * 1000,
+        diana: 76 * 3600 * 1000,
+        miriam: 98 * 3600 * 1000,
+        clara: 124 * 3600 * 1000,
+        leo: 160 * 3600 * 1000,
+        elena: 200 * 3600 * 1000,
+        marcus: 245 * 3600 * 1000,
+        liwei: 290 * 3600 * 1000,
+        ananya: 340 * 3600 * 1000,
+        grace: 400 * 3600 * 1000,
+      };
+      const offsetMs = DEFAULT_OFFSETS_MS[matchId] ?? 3 * 3600 * 1000;
       const seeded = await db.insert(messages)
         .values({
           userId: req.userDb.id,
           matchId,
           senderId: matchId,
           text: welcomeText,
+          createdAt: new Date(Date.now() - offsetMs),
         })
         .returning();
       historyList = seeded;
@@ -1516,14 +1536,24 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   } else {
-    const vite = await createViteServer({
+    const vitePromise = createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === "true" ? false : undefined,
+        hmr: false,
       },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    vitePromise.catch((err) => {
+      console.error("Failed to initialize Vite dev middleware:", err);
+    });
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
