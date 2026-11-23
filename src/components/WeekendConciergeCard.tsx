@@ -196,7 +196,7 @@ export const WeekendConciergeCard: React.FC<WeekendConciergeCardProps> = ({
               <span>Identity Verified by NextChapter Silver Shield</span>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2 shrink-0">
               {isPatron || isClub ? (
                 <button
                   type="button"
@@ -206,7 +206,7 @@ export const WeekendConciergeCard: React.FC<WeekendConciergeCardProps> = ({
                       `Hello ${companion.name}, our NextChapter Concierge introduced us for this weekend. I read about your ${companion.chapterTheme} and would love to take a leisurely stroll or chat over tea!`
                     )
                   }
-                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+                  className="px-4 sm:px-5 py-2 bg-amber-950 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm inline-flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
                 >
                   <MessageSquare className="w-4 h-4 text-rose-300" />
                   <span>Accept Introduction & Open Dialogue</span>
@@ -215,7 +215,7 @@ export const WeekendConciergeCard: React.FC<WeekendConciergeCardProps> = ({
                 <button
                   type="button"
                   onClick={onUpgradeToPatron}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-900 to-amber-950 hover:from-amber-950 hover:to-stone-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                  className="px-4 sm:px-5 py-2 bg-gradient-to-r from-amber-900 to-amber-950 hover:from-amber-950 hover:to-stone-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm inline-flex items-center justify-center gap-2"
                 >
                   <Lock className="w-4 h-4 text-amber-300" />
                   <span>Unlock Weekly Concierge Introductions ($49.99/mo)</span>
