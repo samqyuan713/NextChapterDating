@@ -498,14 +498,14 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
           </div>
 
           {/* Detailed Criteria: Search, Gender, Education, Age, Height */}
-          <div className="pt-3 border-t border-amber-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="pt-3 border-t border-amber-100 flex flex-wrap items-end gap-3">
             {/* Keyword Search */}
-            <div>
+            <div className="w-44 sm:w-48 max-w-full">
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
                 Search Name or Bio
               </label>
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-2.5 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-2 pointer-events-none" />
                 <input
                   type="text"
                   value={searchKeyword}
@@ -514,13 +514,13 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                     setSwipeIndex(0);
                   }}
                   placeholder="e.g. Architect, Yoga..."
-                  className="w-full bg-amber-50/40 border border-amber-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white"
+                  className="w-full bg-amber-50/40 border border-amber-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white"
                 />
               </div>
             </div>
 
             {/* Gender Select */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
                 Looking For
               </label>
@@ -530,7 +530,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   setSearchGender(e.target.value);
                   setSwipeIndex(0);
                 }}
-                className="w-full bg-amber-50/40 border border-amber-200 rounded-xl px-3 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                className="w-auto min-w-[130px] max-w-[165px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
               >
                 <option value="All">All Gentlefolk</option>
                 <option value="Female">Gentlewoman</option>
@@ -539,7 +539,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             </div>
 
             {/* Education Level Select */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <GraduationCap className="w-3 h-3 text-amber-700" />
                 <span>Education Level</span>
@@ -552,7 +552,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   }
                   setSwipeIndex(0);
                 }}
-                className="w-full bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                className="w-auto min-w-[155px] max-w-[195px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
               >
                 <option value="All">All Education Levels</option>
                 <option value="Doctorate / PhD">Doctorate / PhD</option>
@@ -566,7 +566,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             </div>
 
             {/* Age Range */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
                 Age Range ({searchAgeMin} – {searchAgeMax})
               </label>
@@ -577,7 +577,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   max={searchAgeMax}
                   value={searchAgeMin}
                   onChange={(e) => setSearchAgeMin(Number(e.target.value))}
-                  className="w-1/2 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
+                  className="w-16 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
                 />
                 <span className="text-amber-500 text-xs">to</span>
                 <input
@@ -586,13 +586,13 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                   max={85}
                   value={searchAgeMax}
                   onChange={(e) => setSearchAgeMax(Number(e.target.value))}
-                  className="w-1/2 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
+                  className="w-16 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
                 />
               </div>
             </div>
 
             {/* Height Range */}
-            <div>
+            <div className="shrink-0">
               <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
                 Height Range
               </label>
@@ -600,7 +600,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 <select
                   value={searchHeightMin}
                   onChange={(e) => setSearchHeightMin(Number(e.target.value))}
-                  className="w-1/2 bg-amber-50/40 border border-amber-200 rounded-xl px-1.5 py-1 text-[11px] text-amber-950"
+                  className="w-auto min-w-[105px] max-w-[125px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-[11px] text-amber-950 cursor-pointer"
                 >
                   {HEIGHT_OPTIONS.map((h) => (
                     <option key={h} value={h}>
@@ -612,7 +612,7 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
                 <select
                   value={searchHeightMax}
                   onChange={(e) => setSearchHeightMax(Number(e.target.value))}
-                  className="w-1/2 bg-amber-50/40 border border-amber-200 rounded-xl px-1.5 py-1 text-[11px] text-amber-950"
+                  className="w-auto min-w-[105px] max-w-[125px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-[11px] text-amber-950 cursor-pointer"
                 >
                   {HEIGHT_OPTIONS.map((h) => (
                     <option key={h} value={h}>
