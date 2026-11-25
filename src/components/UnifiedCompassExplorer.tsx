@@ -41,7 +41,8 @@ import { VoiceGreetingPlayer } from "./VoiceGreetingPlayer";
 import { getCuratedIntroduction } from "../data/mockProfiles";
 import { getCompanionPromptReflection } from "../lib/safetyGuard";
 
-export const HEIGHT_OPTIONS = Array.from({ length: 23 }, (_, i) => 58 + i); // 58 to 80 inches (4'10" to 6'8")
+export const AGE_OPTIONS = Array.from({ length: 51 }, (_, i) => 35 + i); // 35 to 85 yrs
+export const HEIGHT_OPTIONS = Array.from({ length: 27 }, (_, i) => 54 + i); // 54 to 80 inches (4'6" to 6'8")
 
 export const formatHeight = (inches: number) => {
   const feet = Math.floor(inches / 12);
@@ -497,129 +498,173 @@ export const UnifiedCompassExplorer: React.FC<UnifiedCompassExplorerProps> = ({
             </button>
           </div>
 
-          {/* Detailed Criteria: Search, Gender, Education, Age, Height */}
-          <div className="pt-3 border-t border-amber-100 flex flex-wrap items-end gap-3">
-            {/* Keyword Search */}
-            <div className="w-44 sm:w-48 max-w-full">
-              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                Search Name or Bio
-              </label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchKeyword}
+          {/* Detailed Criteria Row 1: Categorical & Keyword Filters */}
+          <div className="pt-3 border-t border-amber-100 space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              {/* Keyword Search */}
+              <div className="w-44 sm:w-52 max-w-full">
+                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                  Search Name or Bio
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-amber-600 absolute left-2.5 top-2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchKeyword}
+                    onChange={(e) => {
+                      setSearchKeyword(e.target.value);
+                      setSwipeIndex(0);
+                    }}
+                    placeholder="e.g. Architect, Yoga..."
+                    className="w-full bg-amber-50/40 border border-amber-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Gender Select */}
+              <div className="shrink-0">
+                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                  Looking For
+                </label>
+                <select
+                  value={searchGender}
                   onChange={(e) => {
-                    setSearchKeyword(e.target.value);
+                    setSearchGender(e.target.value);
                     setSwipeIndex(0);
                   }}
-                  placeholder="e.g. Architect, Yoga..."
-                  className="w-full bg-amber-50/40 border border-amber-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white"
-                />
+                  className="w-auto min-w-[130px] max-w-[165px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                >
+                  <option value="All">All Gentlefolk</option>
+                  <option value="Female">Gentlewoman</option>
+                  <option value="Male">Gentleman</option>
+                </select>
+              </div>
+
+              {/* Education Level Select */}
+              <div className="shrink-0">
+                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <GraduationCap className="w-3 h-3 text-amber-700" />
+                  <span>Education Level</span>
+                </label>
+                <select
+                  value={searchEducationLevel}
+                  onChange={(e) => {
+                    if (setSearchEducationLevel) {
+                      setSearchEducationLevel(e.target.value);
+                    }
+                    setSwipeIndex(0);
+                  }}
+                  className="w-auto min-w-[155px] max-w-[195px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                >
+                  <option value="All">All Education Levels</option>
+                  <option value="Doctorate / PhD">Doctorate / PhD</option>
+                  <option value="Master's Degree">Master's Degree</option>
+                  <option value="Bachelor's Degree">Bachelor's Degree</option>
+                  <option value="Associate / College Diploma">Associate / College Diploma</option>
+                  <option value="Vocational / Technical Certification">Vocational / Technical</option>
+                  <option value="High School / Preparatory">High School / Prep</option>
+                  <option value="Lifelong Independent Scholar">Independent Scholar</option>
+                </select>
               </div>
             </div>
 
-            {/* Gender Select */}
-            <div className="shrink-0">
-              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                Looking For
-              </label>
-              <select
-                value={searchGender}
-                onChange={(e) => {
-                  setSearchGender(e.target.value);
-                  setSwipeIndex(0);
-                }}
-                className="w-auto min-w-[130px] max-w-[165px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
-              >
-                <option value="All">All Gentlefolk</option>
-                <option value="Female">Gentlewoman</option>
-                <option value="Male">Gentleman</option>
-              </select>
-            </div>
-
-            {/* Education Level Select */}
-            <div className="shrink-0">
-              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <GraduationCap className="w-3 h-3 text-amber-700" />
-                <span>Education Level</span>
-              </label>
-              <select
-                value={searchEducationLevel}
-                onChange={(e) => {
-                  if (setSearchEducationLevel) {
-                    setSearchEducationLevel(e.target.value);
-                  }
-                  setSwipeIndex(0);
-                }}
-                className="w-auto min-w-[155px] max-w-[195px] bg-amber-50/40 border border-amber-200 rounded-xl px-2.5 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
-              >
-                <option value="All">All Education Levels</option>
-                <option value="Doctorate / PhD">Doctorate / PhD</option>
-                <option value="Master's Degree">Master's Degree</option>
-                <option value="Bachelor's Degree">Bachelor's Degree</option>
-                <option value="Associate / College Diploma">Associate / College Diploma</option>
-                <option value="Vocational / Technical Certification">Vocational / Technical</option>
-                <option value="High School / Preparatory">High School / Prep</option>
-                <option value="Lifelong Independent Scholar">Independent Scholar</option>
-              </select>
-            </div>
-
-            {/* Age Range */}
-            <div className="shrink-0">
-              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                Age Range ({searchAgeMin} – {searchAgeMax})
-              </label>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="number"
-                  min={35}
-                  max={searchAgeMax}
-                  value={searchAgeMin}
-                  onChange={(e) => setSearchAgeMin(Number(e.target.value))}
-                  className="w-16 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
-                />
-                <span className="text-amber-500 text-xs">to</span>
-                <input
-                  type="number"
-                  min={searchAgeMin}
-                  max={85}
-                  value={searchAgeMax}
-                  onChange={(e) => setSearchAgeMax(Number(e.target.value))}
-                  className="w-16 bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-xs text-center text-amber-950"
-                />
+            {/* Detailed Criteria Row 2: Paired Numeric Range Selectors (Age & Height) */}
+            <div className="flex flex-wrap items-end gap-4 pt-2 border-t border-amber-100/60">
+              {/* Age Range (Paired Dropdowns matching Height Range) */}
+              <div className="shrink-0">
+                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
+                  Age Range ({searchAgeMin} – {searchAgeMax} yrs)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    aria-label="Minimum Age"
+                    value={searchAgeMin}
+                    onChange={(e) => {
+                      const nextMin = Number(e.target.value);
+                      setSearchAgeMin(nextMin);
+                      if (nextMin > searchAgeMax) {
+                        setSearchAgeMax(nextMin);
+                      }
+                      setSwipeIndex(0);
+                    }}
+                    className="w-auto min-w-[84px] max-w-[100px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                  >
+                    {AGE_OPTIONS.map((age) => (
+                      <option key={age} value={age}>
+                        ≥ {age} yrs
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-amber-500 text-xs">to</span>
+                  <select
+                    aria-label="Maximum Age"
+                    value={searchAgeMax}
+                    onChange={(e) => {
+                      const nextMax = Number(e.target.value);
+                      setSearchAgeMax(nextMax);
+                      if (nextMax < searchAgeMin) {
+                        setSearchAgeMin(nextMax);
+                      }
+                      setSwipeIndex(0);
+                    }}
+                    className="w-auto min-w-[84px] max-w-[100px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                  >
+                    {AGE_OPTIONS.map((age) => (
+                      <option key={age} value={age}>
+                        ≤ {age} yrs
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
 
-            {/* Height Range */}
-            <div className="shrink-0">
-              <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                Height Range
-              </label>
-              <div className="flex items-center gap-1.5">
-                <select
-                  value={searchHeightMin}
-                  onChange={(e) => setSearchHeightMin(Number(e.target.value))}
-                  className="w-auto min-w-[105px] max-w-[125px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-[11px] text-amber-950 cursor-pointer"
-                >
-                  {HEIGHT_OPTIONS.map((h) => (
-                    <option key={h} value={h}>
-                      ≥ {formatHeight(h)}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-amber-500 text-xs">to</span>
-                <select
-                  value={searchHeightMax}
-                  onChange={(e) => setSearchHeightMax(Number(e.target.value))}
-                  className="w-auto min-w-[105px] max-w-[125px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1 text-[11px] text-amber-950 cursor-pointer"
-                >
-                  {HEIGHT_OPTIONS.map((h) => (
-                    <option key={h} value={h}>
-                      ≤ {formatHeight(h)}
-                    </option>
-                  ))}
-                </select>
+              {/* Height Range */}
+              <div className="shrink-0">
+                <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Ruler className="w-3 h-3 text-amber-700" />
+                  <span>Height Range</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    aria-label="Minimum Height"
+                    value={searchHeightMin}
+                    onChange={(e) => {
+                      const nextMin = Number(e.target.value);
+                      setSearchHeightMin(nextMin);
+                      if (nextMin > searchHeightMax) {
+                        setSearchHeightMax(nextMin);
+                      }
+                      setSwipeIndex(0);
+                    }}
+                    className="w-auto min-w-[110px] max-w-[132px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                  >
+                    {HEIGHT_OPTIONS.map((h) => (
+                      <option key={h} value={h}>
+                        ≥ {formatHeight(h)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-amber-500 text-xs">to</span>
+                  <select
+                    aria-label="Maximum Height"
+                    value={searchHeightMax}
+                    onChange={(e) => {
+                      const nextMax = Number(e.target.value);
+                      setSearchHeightMax(nextMax);
+                      if (nextMax < searchHeightMin) {
+                        setSearchHeightMin(nextMax);
+                      }
+                      setSwipeIndex(0);
+                    }}
+                    className="w-auto min-w-[110px] max-w-[132px] bg-amber-50/40 border border-amber-200 rounded-xl px-2 py-1.5 text-xs text-amber-950 focus:outline-none focus:bg-white cursor-pointer"
+                  >
+                    {HEIGHT_OPTIONS.map((h) => (
+                      <option key={h} value={h}>
+                        ≤ {formatHeight(h)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
