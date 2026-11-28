@@ -12,7 +12,6 @@ import {
   Heart,
   Sparkles,
   Compass,
-  Radio,
   FileText,
   Volume2,
   Calendar,
@@ -204,19 +203,6 @@ export const UserProfilePreview: React.FC<UserProfilePreviewProps> = ({
                   <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>{userProfile.location || "Singapore"}</span>
                 </span>
-                <span className="text-amber-400">•</span>
-                <span className="text-amber-700">
-                  Search Radius: {userProfile.searchRadiusMiles || 50} km
-                </span>
-                {userLocation && (
-                  <>
-                    <span className="text-amber-400">•</span>
-                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold">
-                      <Radio className="w-2.5 h-2.5 text-emerald-600 animate-pulse" />
-                      <span>GPS Active</span>
-                    </span>
-                  </>
-                )}
               </div>
 
               {/* Relationship Focus Tag */}

@@ -133,6 +133,24 @@ const INTERESTS_PRESETS = [
   "Billiards"
 ];
 
+const VOCATION_EXPERIENCE_PRESETS = [
+  "Urban Planner & Heritage Consultant",
+  "Retired Educator & Academic Mentor",
+  "Physician / Healthcare Specialist",
+  "Architect & Landscape Designer",
+  "University Professor & Researcher",
+  "Business Founder & Executive Advisor",
+  "Contemporary Arts & Museum Curator",
+  "Classical Musician & Fine Artist",
+  "Senior Engineer & Technical Consultant",
+  "Culinary Artisan & Specialty Baker",
+  "Author, Editor & Historian",
+  "Botanist & Master Gardener",
+  "Community Volunteer & Philanthropist",
+  "Aviation / Maritime Captain & Explorer",
+  "Mindfulness & Wellness Practitioner"
+];
+
 const formatHeight = (inches: number) => {
   const ft = Math.floor(inches / 12);
   const inch = inches % 12;
@@ -3572,19 +3590,47 @@ export default function App() {
                       </select>
                     </div>
 
-                    {/* Occupation / Vocation */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                    {/* Occupation / Vocation & Life Experience */}
+                    <div className="sm:col-span-2 space-y-2">
+                      <label className="block text-xs font-bold text-amber-900 uppercase tracking-widest flex items-center gap-1">
                         <Briefcase className="w-3.5 h-3.5 text-amber-700" />
                         <span>Vocation & Life Experience</span>
                       </label>
-                      <input
-                        type="text"
-                        value={userProfile.occupation || ""}
-                        onChange={(e) => setUserProfile({ ...userProfile, occupation: e.target.value })}
-                        placeholder="e.g. Urban Planner & Heritage Consultant, Retired Educator"
-                        className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium"
-                      />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select
+                          aria-label="Vocation & Life Experience Preset"
+                          value={
+                            VOCATION_EXPERIENCE_PRESETS.includes(userProfile.occupation || "")
+                              ? userProfile.occupation
+                              : "__custom__"
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "__custom__") {
+                              if (VOCATION_EXPERIENCE_PRESETS.includes(userProfile.occupation || "")) {
+                                setUserProfile({ ...userProfile, occupation: "" });
+                              }
+                            } else {
+                              setUserProfile({ ...userProfile, occupation: val });
+                            }
+                          }}
+                          className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium cursor-pointer"
+                        >
+                          {VOCATION_EXPERIENCE_PRESETS.map((preset) => (
+                            <option key={preset} value={preset}>
+                              {preset}
+                            </option>
+                          ))}
+                          <option value="__custom__">Custom / Enter Your Own...</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={userProfile.occupation || ""}
+                          onChange={(e) => setUserProfile({ ...userProfile, occupation: e.target.value })}
+                          placeholder="Or refine / type custom vocation..."
+                          className="w-full bg-amber-50/40 border border-amber-100 rounded-xl px-3 py-2.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-300 focus:bg-white text-xs font-medium"
+                        />
+                      </div>
                     </div>
                   </div>
 
